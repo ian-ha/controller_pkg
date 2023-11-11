@@ -24,6 +24,7 @@ from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Twist
 from std_msgs.msg import String
+import os
 # We do not use cv_bridge it does not support CompressedImage in python
 # from cv_bridge import CvBridge, CvBridgeError
 
@@ -36,7 +37,7 @@ steering_val = -1
 prev_steering_val = -1
 
 move = Twist()
-
+counter = 0
 
 def get_steering_val():
    """
@@ -98,6 +99,14 @@ class image_feature:
         '''initialize ros publisher'''
 
         self.publisher2 = rospy.Publisher("/score_tracker",String, queue_size=1)
+        rospy.sleep(1)
+
+        self.publisher2.publish('TeamName,password,0,NA')
+        global move
+        move.linear.x = 0.5
+        self.publisher.publish(move)
+
+
         if VERBOSE :
             print ("/rrbot/camera/image_raw")
 
@@ -106,29 +115,24 @@ class image_feature:
         '''Callback function of subscribed topic. 
         Here images get converted and road is detected, steering val is set'''
 
-        #### direct conversion to CV2 ####
-        self.publisher2.publish('TeamName,password,0,NA')
-        cv_image = self.bridge.imgmsg_to_cv2(ros_data, desired_encoding='mono8')
+        global counter, move
+
+        if counter == 1:
+            rospy.sleep(3)
+            move.linear.x = 0
+            self.publisher.publish(move)
+            self.publisher2.publish('TeamName,password,-1,NA')
+            rospy.sleep(1)
+            os.kill(os.getpid(),9)
+
+        if counter == 0:
+            move.linear.x = 0.5
+            self.publisher.publish(move)
+            counter += 1
+
+
         
-        blur_image = cv2.GaussianBlur(cv_image, (7,7), 0)
-
-        # Define the lower and upper bounds for black (low brightness)
-        lower_black = np.array([0])  # Lower bound
-        upper_black = np.array([150])  # Upper bound 
-
-        black_mask = cv2.inRange(blur_image, lower_black, upper_black)
-
-        global steering_val
         
-        steering_val = scan_row_for_road(BOTTOM_ROW_OF_IMAGE,black_mask)
-
-        cv2.imshow('cv_img', black_mask)
-        cv2.waitKey(10)
-
-        get_steering_val()
-        self.publisher.publish(move)
-        time.sleep(1)
-        self.publisher2.publish('TeamName,password,-1,NA')
 
         
         #self.subscriber.unregister()
@@ -137,7 +141,6 @@ def main(args):
     '''Initializes and cleanup ros node'''
     rospy.init_node('image_feature', anonymous=True)
     ic = image_feature()
-
     try:
         rospy.spin()
     except KeyboardInterrupt:
