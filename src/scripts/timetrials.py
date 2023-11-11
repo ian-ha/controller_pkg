@@ -20,6 +20,15 @@ import roslib
 import rospy
 from cv_bridge import CvBridge
 
+import rospy
+import cv2
+import sys
+import numpy as np
+from std_msgs.msg import String
+from sensor_msgs.msg import Image
+from geometry_msgs.msg import Twist
+from cv_bridge import CvBridge, CvBridgeError
+
 # Ros Messages
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Twist
@@ -83,9 +92,13 @@ from left hand side of the screen)
     
     return -1 # value returned if there is no road on the screen
 
+class line_follower:
 
-class image_feature:
-    """Class that subsribes to image feed"""
+#   def __init__(self):
+#     self.image_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=1)
+
+#     self.bridge = CvBridge()
+#     self.image_sub = rospy.Subscriber("/rrbot/camera1/image_raw", Image, self.callback)
 
     def __init__(self):
         '''Initialize ros subscriber'''
@@ -94,7 +107,7 @@ class image_feature:
         # subscribed Topic
         self.subscriber = rospy.Subscriber("/R1/pi_camera/image_raw",
             Image, self.callback,  queue_size = 1)
-        
+
         self.publisher = rospy.Publisher("/R1/cmd_vel",Twist, queue_size=1)
         '''initialize ros publisher'''
 
@@ -111,36 +124,75 @@ class image_feature:
             print ("/rrbot/camera/image_raw")
 
 
-    def callback(self, ros_data):
-        '''Callback function of subscribed topic. 
-        Here images get converted and road is detected, steering val is set'''
+    def callback(self, data):
+        # convert from ROS image to CV2
+        try:
+            cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+        except CvBridgeError as e:
+            print(e)
 
-        global counter, move
+        cv2.imshow("Image window", cv_image)
+        cv2.waitKey(3)
 
-        if counter == 1:
-            rospy.sleep(3)
-            move.linear.x = 0
+
+
+        # @brief calculate road center
+        (rows,cols,channels) = cv_image.shape
+
+        
+        
+        # Identify the row 2 pixels above the bottom edge
+        row_index_2 = cv_image.shape[0] - 2 - 1
+
+        # Find pixel values for that row
+        row_pixels_2 = cv_image[row_index_2, :, :]
+
+        # Calculate brightness for each pixel in the row
+        brightness_values_2 = np.sum(row_pixels_2[:, :3], axis=1)
+
+        # Find the coordinates of the leftmost and rightmost dark spots
+        dark_pixel_indices_2 = np.where(brightness_values_2 < 268)[0]
+        middle_spot=0
+        if len(dark_pixel_indices_2) > 0:
+            leftmost_dark_spot = dark_pixel_indices_2[0]
+            rightmost_dark_spot = dark_pixel_indices_2[-1]
+            middle_spot = (leftmost_dark_spot + rightmost_dark_spot) // 2
+            middle_coordinates = (middle_spot, row_index_2)
+
+            # Draw a large red dot at the middle spot using OpenCV's circle function
+            cv2.circle(cv_image, middle_coordinates, 5, [0, 0, 255], -1)  # Red circle with r = 5
+            cv2.imshow("Image road", cv_image)
+            cv2.waitKey(3)
+        else:
+            middle_coordinates = None
+
+        x_mid_of_frame = cols // 2
+
+        mid_frame = (x_mid_of_frame, row_index_2)
+        print(middle_coordinates)
+        print(mid_frame)
+        print(row_pixels_2[600])
+
+        
+        move = Twist()
+
+        if(x_mid_of_frame-middle_spot>0):
+            move.linear.x = 0.25
+            move.angular.z = (x_mid_of_frame-middle_spot)/80
+        else:
+            move.linear.x = 0.25
+            move.angular.z = (x_mid_of_frame-middle_spot)/80
+        try:
             self.publisher.publish(move)
-            self.publisher2.publish('TeamName,password,-1,NA')
-            rospy.sleep(1)
-            os.kill(os.getpid(),9)
-
-        if counter == 0:
-            move.linear.x = 0.5
-            self.publisher.publish(move)
-            counter += 1
+        except CvBridgeError as e:
+            print(e)
 
 
-        
-        
-
-        
-        #self.subscriber.unregister()
 
 def main(args):
     '''Initializes and cleanup ros node'''
     rospy.init_node('image_feature', anonymous=True)
-    ic = image_feature()
+    ic = line_follower()
     try:
         rospy.spin()
     except KeyboardInterrupt:
@@ -149,3 +201,4 @@ def main(args):
 
 if __name__ == '__main__':
     main(sys.argv)
+
