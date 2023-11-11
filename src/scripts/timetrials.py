@@ -49,10 +49,10 @@ def get_steering_val():
       move.angular.z = 2
    elif(prev_steering_val == -1) : #first time seeing road, begin driving forward
       prev_steering_val = steering_val
-      move.linear.x = 2.5
+      move.linear.x = 1
       move.angular.z = 0
    elif(steering_val != -1): #if seeing road, set move command based on difference of road position from center
-      move.linear.x = 2.5
+      move.linear.x = 1
       move.angular.z = -(steering_val-STEERING_CENTER)/50
       prev_steering_val = steering_val
    else:
