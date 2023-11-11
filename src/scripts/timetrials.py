@@ -27,7 +27,7 @@ from std_msgs.msg import String
 # We do not use cv_bridge it does not support CompressedImage in python
 # from cv_bridge import CvBridge, CvBridgeError
 
-BOTTOM_ROW_OF_IMAGE = 799
+BOTTOM_ROW_OF_IMAGE = 719
 COLUMNS_IN_IMAGE = 800
 VERBOSE=False
 
@@ -91,10 +91,10 @@ class image_feature:
         self.bridge = CvBridge()
 
         # subscribed Topic
-        self.subscriber = rospy.Subscriber("/rrbot/camera/image_raw",
+        self.subscriber = rospy.Subscriber("/R1/pi_camera/image_raw",
             Image, self.callback,  queue_size = 1)
         
-        self.publisher = rospy.Publisher("/cmd_vel",Twist, queue_size=1)
+        self.publisher = rospy.Publisher("/R1/cmd_vel",Twist, queue_size=1)
         '''initialize ros publisher'''
 
         self.publisher2 = rospy.Publisher("/score_tracker",String, queue_size=1)
