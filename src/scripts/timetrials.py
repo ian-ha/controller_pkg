@@ -97,7 +97,7 @@ class robot_driving:
                 road_pixel_counter += 1
             else: #if coulour is not white than reset counter
                 road_pixel_counter = 0
-            if road_pixel_counter > 1: #if greater than 10 consecutive columns are road, return pixel num
+            if road_pixel_counter > 4: #if greater than 10 consecutive columns are road, return pixel num
                 if from_left:
                     return i
                 else:
@@ -134,12 +134,13 @@ class robot_driving:
         global counter, move
         cv_image = self.bridge.imgmsg_to_cv2(ros_data, 'bgr8')
         blur_image = cv2.GaussianBlur(cv_image, (7,7), 0)
+        blur_image = cv2.GaussianBlur(blur_image, (7,7), 0)
 
         greyscale = cv2.cvtColor(blur_image, cv2.COLOR_BGR2GRAY)
 
         # Define the lower and upper bounds for black (low brightness)
         lower_black = np.array([0])  # Lower bound
-        upper_black = np.array([200])  # Upper bound 
+        upper_black = np.array([180])  # Upper bound 
 
         black_mask = cv2.inRange(greyscale, lower_black, upper_black)
 
