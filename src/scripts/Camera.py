@@ -30,7 +30,7 @@ class ImageDisplay:
         gray_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
 
         # Apply threshold
-        threshold_value = 100  # You can adjust this value
+        threshold_value = 98  # You can adjust this value
         _, thresh_image = cv2.threshold(gray_image, threshold_value, 255, cv2.THRESH_BINARY)
 
         cv2.imshow("Thresholded Image", thresh_image)
