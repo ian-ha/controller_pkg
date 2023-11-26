@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 """
-This program subscribes to a raw image topic and detects quadrilaterals in the image using OpenCV without edge detection.
+This program subscribes to a raw image topic, applies a specific filter to the image, and then displays it using OpenCV.
 """
 
 import sys
@@ -14,7 +14,7 @@ import numpy as np
 VERBOSE = False
 
 class ImageDisplay:
-    """Class that subscribes to image feed, displays it, and attempts to detect quadrilaterals directly in the image"""
+    """Class that subscribes to image feed and displays the filtered image"""
 
     def __init__(self):
         '''Initialize ros subscriber'''
@@ -25,31 +25,22 @@ class ImageDisplay:
             print("Subscribed to /R1/pi_camera/image_raw")
 
     def callback(self, ros_data):
-        '''Callback function of subscribed topic. Here images get converted and quadrilaterals detected'''
+        '''Callback function of subscribed topic. Here images get converted and filtered'''
         cv_image = self.bridge.imgmsg_to_cv2(ros_data, 'bgr8')
 
-        # Convert the image to grayscale
-        gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
+        # Apply the filter
+        blue_channel = cv_image[:,:,0]
+        red_channel = cv_image[:,:,2]
+        green_channel = cv_image[:,:,1]
 
-        # Thresholding the grayscale image to get better results
-        _, thresh = cv2.threshold(gray, 128, 255, cv2.THRESH_BINARY)
+        # Create a mask where the blue channel is at least 1.8 times the red and green channels
+        mask = (blue_channel >= 1.8 * red_channel) & (blue_channel >= 1.8 * green_channel)
 
-        # Find contours
-        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # Create a new image, white where the mask is True, black elsewhere
+        filtered_image = np.zeros_like(cv_image)
+        filtered_image[mask] = [255, 255, 255]
 
-        # Iterate over contours and approximate to polygons
-        for cnt in contours:
-            # Approximate the contour to a polygon
-            epsilon = 0.02 * cv2.arcLength(cnt, True)
-            approx = cv2.approxPolyDP(cnt, epsilon, True)
-
-            # If the polygon has 4 vertices, we assume it's a quadrilateral
-            if len(approx) == 4:
-                cv2.drawContours(cv_image, [approx], 0, (0, 255, 0), 3)  # Draw in green
-                for vertex in approx:
-                    cv2.circle(cv_image, tuple(vertex[0]), 5, (0, 0, 255), -1)  # Vertices in blue
-
-        cv2.imshow("Image with Detected Quadrilaterals", cv_image)
+        cv2.imshow("Filtered Image", filtered_image)
         cv2.waitKey(3)
 
 def main(args):
