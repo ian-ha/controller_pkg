@@ -116,10 +116,10 @@ class robot_driving:
             move.angular.z = 0.05
         elif(self.prev_steering_val == -1) : #first time seeing road, begin driving forward
             self.prev_steering_val = self.steering_val
-            move.linear.x = 0.4
+            move.linear.x = 0.1
             move.angular.z = 0
         elif(self.steering_val != -1): #if seeing road, set move command based on difference of road position from center
-            move.linear.x = 0.4
+            move.linear.x = 0.1
             move.angular.z = -(self.steering_val-STEERING_CENTER)/150
             self.prev_steering_val = self.steering_val
         else:
