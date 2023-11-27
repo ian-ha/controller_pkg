@@ -44,8 +44,10 @@ class ImageDisplay:
                 max_quad = approx
 
         if max_quad is not None:
+            max_quad = self.order_points(max_quad[:, 0, :])  # Reorder points
+
             # Draw the contour
-            cv2.drawContours(cv_image, [max_quad], 0, (0, 255, 0), 3)
+            cv2.drawContours(cv_image, [max_quad.astype(int)], 0, (0, 255, 0), 3)
 
             # Perspective transformation
             pts1 = np.float32(max_quad)
@@ -59,6 +61,16 @@ class ImageDisplay:
         # Display the edge-detected image
         cv2.imshow("Masked Image", filtered_image)
         cv2.waitKey(3)
+
+    def order_points(self, pts):
+        rect = np.zeros((4, 2), dtype="float32")
+        s = pts.sum(axis=1)
+        diff = np.diff(pts, axis=1)
+        rect[0] = pts[np.argmin(s)]
+        rect[2] = pts[np.argmax(s)]
+        rect[1] = pts[np.argmin(diff)]
+        rect[3] = pts[np.argmax(diff)]
+        return rect
 
 def main(args):
     rospy.init_node('image_display', anonymous=True)
