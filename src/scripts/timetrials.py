@@ -65,7 +65,7 @@ class robot_driving:
         self.publisher2.publish('TeamName,password,0,NA')
         global move
         # move.linear.x = 0.5
-        # self.publisher.publish(move)
+        self.publisher.publish(move)
 
 
         if VERBOSE :
@@ -120,11 +120,11 @@ class robot_driving:
             move.angular.z = 0
         elif(self.steering_val != -1): #if seeing road, set move command based on difference of road position from center
             move.linear.x = 0.4
-            move.angular.z = -(self.steering_val-STEERING_CENTER)/150
+            move.angular.z = -(self.steering_val-STEERING_CENTER)/120
             self.prev_steering_val = self.steering_val
         else:
-            move.linear.x = 0.0 #if road is lost, rotate in direction road was last seen until road is found again
-            move.angular.z = -(self.prev_steering_val-STEERING_CENTER)/150
+            move.linear.x = -0.01 #if road is lost, rotate in direction road was last seen until road is found again
+            move.angular.z = -(self.prev_steering_val-STEERING_CENTER)/120
 
 
     def callback(self, ros_data):
