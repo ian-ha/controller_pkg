@@ -13,6 +13,7 @@ class ImageDisplay:
     def __init__(self):
         self.bridge = CvBridge()
         self.subscriber = rospy.Subscriber("/R1/pi_camera/image_raw", Image, self.callback, queue_size=1)
+        self.picture_taken = False  # Attribute to track if the picture has been taken
         if VERBOSE:
             print("Subscribed to /R1/pi_camera/image_raw")
 
@@ -44,22 +45,27 @@ class ImageDisplay:
                 max_quad = approx
 
         if max_quad is not None:
-            max_quad = self.order_points(max_quad[:, 0, :])  # Reorder points
+            area = cv2.contourArea(max_quad)
+            if area > 25000 and not self.picture_taken:
+                # Reorder points and perform perspective transformation
+                max_quad = self.order_points(max_quad[:, 0, :])
+                pts1 = np.float32(max_quad)
+                pts2 = np.float32([[0, 0], [500, 0], [500, 500], [0, 500]])
+                matrix = cv2.getPerspectiveTransform(pts1, pts2)
+                result = cv2.warpPerspective(cv_image, matrix, (500, 500))
+
+                # Take a picture of 'result' and save it
+                cv2.imwrite("quadrilateral_image.jpg", result)
+                self.picture_taken = True  # Set the flag to True after taking the picture
+                print("Picture of the quadrilateral taken.")
+                cv2.imshow("Perspective Transformation", result)
 
             # Draw the contour
             cv2.drawContours(cv_image, [max_quad.astype(int)], 0, (0, 255, 0), 3)
 
-            # Perspective transformation
-            pts1 = np.float32(max_quad)
-            pts2 = np.float32([[0, 0], [500, 0], [500, 500], [0, 500]])
-            matrix = cv2.getPerspectiveTransform(pts1, pts2)
-            result = cv2.warpPerspective(cv_image, matrix, (500, 500))
-
-            # Display the transformed image
-            cv2.imshow("Perspective Transformation", result)
-
         # Display the edge-detected image
         cv2.imshow("Masked Image", filtered_image)
+        cv2.imshow
         cv2.waitKey(3)
 
     def order_points(self, pts):
