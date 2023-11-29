@@ -30,17 +30,26 @@ import os
 
 BOTTOM_ROW_OF_IMAGE = 719
 SCAN_ROW = BOTTOM_ROW_OF_IMAGE - 250
+WALL_ROW = BOTTOM_ROW_OF_IMAGE - 400
 STEERING_CENTER = 640
 COLUMNS_IN_IMAGE = 1279
+GRASS_ROW = BOTTOM_ROW_OF_IMAGE - 275
+GRASS_2 = BOTTOM_ROW_OF_IMAGE - 200
 VERBOSE=False
-
-
+NORMAL_DRIVE = 0
+PEDESTRIAN = 1
+TRUCK_LOOP = 2
+OFFROAD = 3
+MOUNTAIN = 4
+GRASS_ROAD = 5 
 
 move = Twist()
 counter = 0
-
-
-
+state_machine = NORMAL_DRIVE
+ROBOT_SPEED = 0.38
+seen_purple_lines = 0
+wall_seen = False
+last_purple = time.time()
 
 class robot_driving:
     """Class that subsribes to image feed"""
@@ -71,7 +80,40 @@ class robot_driving:
         if VERBOSE :
             print ("/rrbot/camera/image_raw")
 
-          
+        
+    def check_for_purple(self, image):
+        cur_time = time.time()
+        global last_purple
+        delta_t = cur_time - last_purple
+        lower_purple = np.array([200, 0, 200])
+        upper_purple = np.array([255, 15, 255])
+        purple_pixels = 0
+        purple_mask = cv2.inRange(image, lower_purple, upper_purple)
+        cv2.imshow("purple", purple_mask)
+        for i in range(COLUMNS_IN_IMAGE):
+            for j in range(GRASS_ROW-2, GRASS_ROW+2):
+                if purple_mask[j, i] == 255:
+                    purple_pixels += 1
+                    if purple_pixels > 1 and delta_t > 3:
+                        last_purple = cur_time
+                        return True
+        return False
+    def locate_wall(self, row_num, image):
+        upper_wall = np.array([50, 70, 70])
+        lower_wall = np.array([25, 45, 50])
+        wall_mask = cv2.inRange(image, lower_wall, upper_wall)
+        wall_pixel_counter = 0
+        for i in range(COLUMNS_IN_IMAGE):
+            if wall_mask[row_num, i] == 255:
+                wall_pixel_counter += 1
+            else:
+                wall_pixel_counter = 0
+            if wall_pixel_counter > 130:
+                return i
+        # cv2.imshow("wall", wall_mask)
+        # cv2.waitKey(3)
+        return -1
+
     def locate_road(self, row_num, mask):
         """@brief scans a row of image for the road, returns pixel num of some point on the road (counting up
         from left hand side of the screen)
@@ -93,11 +135,11 @@ class robot_driving:
                 colour = image[row_num,i]
             else:
                 colour = image[row_num,COLUMNS_IN_IMAGE - i]
-            if(colour < 225): #if Colour is close to white it is road
+            if(colour ==255): #if Colour is close to white it is road
                 road_pixel_counter += 1
             else: #if coulour is not white than reset counter
                 road_pixel_counter = 0
-            if road_pixel_counter > 4: #if greater than 10 consecutive columns are road, return pixel num
+            if road_pixel_counter > 12: #if greater than 10 consecutive columns are road, return pixel num
                 if from_left:
                     return i
                 else:
@@ -105,7 +147,7 @@ class robot_driving:
         
         return -1 # value returned if there is no road on the screen
 
-    def get_steering_val(self):
+    def get_steering_val(self,speed=ROBOT_SPEED):
         """
         @brief modifies prev_steering_val, move
         uses steering value to find the track, then follow it, updating move each time it is called
@@ -113,49 +155,131 @@ class robot_driving:
         global move
         if(self.steering_val == -1 and self.prev_steering_val == -1): #robot initialization - face road
             move.linear.x = 0
-            move.angular.z = 0.05
+            move.angular.z = 0.5
         elif(self.prev_steering_val == -1) : #first time seeing road, begin driving forward
             self.prev_steering_val = self.steering_val
-            move.linear.x = 0.4
+            move.linear.x = speed
             move.angular.z = 0
         elif(self.steering_val != -1): #if seeing road, set move command based on difference of road position from center
-            move.linear.x = 0.4
-            move.angular.z = -(self.steering_val-STEERING_CENTER)/120
+            move.linear.x = speed
+            move.angular.z = -(self.steering_val-STEERING_CENTER)/125
             self.prev_steering_val = self.steering_val
         else:
-            move.linear.x = -0.01 #if road is lost, rotate in direction road was last seen until road is found again
-            move.angular.z = -(self.prev_steering_val-STEERING_CENTER)/120
+            move.linear.x = 0.0 #if road is lost, rotate in direction road was last seen until road is found again
+            move.angular.z = -(self.prev_steering_val-STEERING_CENTER)/125
 
 
     def callback(self, ros_data):
         '''Callback function of subscribed topic. 
         Here images get converted and road is detected, steering val is set'''
 
-        global counter, move
+        global counter, move, state_machine, seen_purple_lines, wall_seen
         cv_image = self.bridge.imgmsg_to_cv2(ros_data, 'bgr8')
-        blur_image = cv2.GaussianBlur(cv_image, (7,7), 0)
-        blur_image = cv2.GaussianBlur(blur_image, (7,7), 0)
+        blur_image = cv2.GaussianBlur(cv_image, (3,3), 0)
+        blur_image2 = cv2.GaussianBlur(blur_image, (7,7), 0)
 
-        greyscale = cv2.cvtColor(blur_image, cv2.COLOR_BGR2GRAY)
+        greyscale = cv2.cvtColor(blur_image2, cv2.COLOR_BGR2GRAY)
 
         # Define the lower and upper bounds for black (low brightness)
-        lower_black = np.array([0])  # Lower bound
-        upper_black = np.array([180])  # Upper bound 
+        lower_white = np.array([220])  # Lower bound
+        upper_white = np.array([255])  # Upper bound 
 
-        black_mask = cv2.inRange(greyscale, lower_black, upper_black)
+        black_mask = cv2.inRange(greyscale, lower_white, upper_white)
 
+
+        if (state_machine == NORMAL_DRIVE):
+            line_position = self.locate_road(SCAN_ROW,black_mask)
+            #cv2.circle(cv_image, (line_position, SCAN_ROW), 5, (0,0,255), -1)
+            self.steering_val = line_position
+            self.get_steering_val(speed=ROBOT_SPEED+.02)
+            if counter == 300:
+                state_machine = TRUCK_LOOP
+                move.linear.x = 0
+                move.angular.z = 1
+                print("entering truck loop")
+
+        elif state_machine == PEDESTRIAN:
+            line_position = self.locate_road(SCAN_ROW,black_mask)
+            state_machine = NORMAL_DRIVE
+        elif state_machine == TRUCK_LOOP:
+            line_position = min([self.__scan_row_for_road(SCAN_ROW,black_mask,True) + 350,1279])
         
-        line_position = self.locate_road(SCAN_ROW,black_mask)
-        self.steering_val = line_position
-        self.get_steering_val()
+            #cv2.circle(cv_image, (line_position, SCAN_ROW), 5, (0,0,255), -1)
+            self.steering_val = line_position
+            if line_position == -1:
+                line_position = 1
+            self.get_steering_val()
+            if counter == 600:
+                state_machine = NORMAL_DRIVE
+                print("entering normal drive")
+        elif state_machine == GRASS_ROAD:
+            upper_line = np.array([180, 230, 230])
+            lower_line = np.array([130, 170, 180])
+            line_mask = cv2.inRange(blur_image2, lower_line, upper_line)
+            #cv2.imshow("Mask2", line_mask)
+            line_position = self.locate_road(GRASS_ROW,line_mask)
+            line2 = self.locate_road(SCAN_ROW,line_mask)
+            #line3 = self.locate_road(GRASS_2,black_mask)
+            line_position = (line_position + line2 )/2
+            #cv2.circle(cv_image, (line_position, GRASS_ROW), 5, (0,0,255), -1)
+            self.steering_val = line_position
+            self.get_steering_val(speed=ROBOT_SPEED+.03)
+
+        elif state_machine == OFFROAD:
+            if not wall_seen:
+                move.linear.x = 0.4
+                move.angular.z = 0.2
+                line_position = 0
+            wall = self.locate_wall(WALL_ROW, blur_image2)
+            if wall != -1:
+                print("wall seen")
+                wall_seen = True
+                move.linear.x = 0.9
+                move.angular.z = -0.3
+                line_position = 0
+                #cv2.circle(cv_image, (line_position, WALL_ROW), 5, (0,0,255), -1)
+            else:
+                move.linear.x = 0.8
+                move.angular.z = 0.3
+                line_position = 0
+        elif state_machine == MOUNTAIN:
+            self.prev_steering_val = -1
+            upper_line = np.array([180, 230, 230])
+            lower_line = np.array([130, 170, 180])
+            line_mask = cv2.inRange(blur_image2, lower_line, upper_line)
+            line_position = self.locate_road(GRASS_ROW,line_mask)
+            self.steering_val = line_position
+            self.get_steering_val(speed=ROBOT_SPEED-0.1)
+            
+
+
+        else:
+            line_position = self.locate_road(SCAN_ROW,black_mask)
+            state_machine = NORMAL_DRIVE
+
+        if self.check_for_purple(blur_image):
+            seen_purple_lines += 1
+            print("PURPLE")
+            if seen_purple_lines == 1:
+                state_machine = GRASS_ROAD
+                print("entering grass road")
+            if seen_purple_lines == 2:
+                state_machine = OFFROAD
+                print("entering offroad")
+            if seen_purple_lines == 3:
+                move.linear.x = 0
+                move.angular.z = 0
+                state_machine = MOUNTAIN
+                print("entering mountain")
+        
         self.publisher.publish(move)
-        cv2.circle(cv_image, (line_position, SCAN_ROW), 5, (0,0,255), -1)
+        
 
         if line_position == -1:
             state = self.prev_state
         else:
             state = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-            line_position = math.floor(line_position/COLUMNS_IN_IMAGE*len(state))
+            line_position = math.floor(line_position/COLUMNS_IN_IMAGE*len(state)-1)
             state[int(line_position)] = 1
         
         self.prev_state = state
@@ -171,16 +295,17 @@ class robot_driving:
         cv2.imshow("Image window", cv_image)
         cv2.waitKey(3)
 
-        if counter == 2000:
+        if counter >= 2000:
             rospy.sleep(3)
             move.linear.x = 0
+            move.angular.z = 0
             self.publisher.publish(move)
             self.publisher2.publish('TeamName,password,-1,NA')
             rospy.sleep(1)
             os.kill(os.getpid(),9)
 
         counter += 1
-        print(self.steering_val)
+        #print(self.steering_val)
         
         #self.subscriber.unregister()
 

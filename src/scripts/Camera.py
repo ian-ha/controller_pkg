@@ -1,95 +1,111 @@
-#!/usr/bin/env python3
+#! /usr/bin/env python3
 
-import rospy
-import cv2
 import sys
-import numpy as np
-from std_msgs.msg import String
+import rospy
+from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
-from geometry_msgs.msg import Twist
-from cv_bridge import CvBridge, CvBridgeError
+import cv2
+import numpy as np
 
-class line_follower:
+VERBOSE = False
 
-  def __init__(self):
-    self.image_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=1)
+class ImageDisplay:
+    def __init__(self):
+        self.bridge = CvBridge()
+        self.subscriber = rospy.Subscriber("/R1/pi_camera/image_raw", Image, self.callback, queue_size=1)
+        if VERBOSE:
+            print("Subscribed to /R1/pi_camera/image_raw")
 
-    self.bridge = CvBridge()
-    self.image_sub = rospy.Subscriber("/rrbot/camera1/image_raw", Image, self.callback)
+    def callback(self, ros_data):
+        cv_image = self.bridge.imgmsg_to_cv2(ros_data, 'bgr8')
 
-  def callback(self, data):
-    # convert from ROS image to CV2
-    try:
-      cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-    except CvBridgeError as e:
-      print(e)
+        # Apply the filter for blue color
+        blue_channel = cv_image[:,:,0]
+        red_channel = cv_image[:,:,2]
+        green_channel = cv_image[:,:,1]
+        mask = (blue_channel >= 1.8 * red_channel) & (blue_channel >= 1.8 * green_channel)
+        filtered_image = np.zeros_like(cv_image)
+        filtered_image[mask] = [255, 255, 255]
 
-    cv2.imshow("Image window", cv_image)
-    cv2.waitKey(3)
+        # Convert to grayscale
+        gray = cv2.cvtColor(filtered_image, cv2.COLOR_BGR2GRAY)
 
+        # Find contours for blue quadrilateral
+        contours, _ = cv2.findContours(gray, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
+        # Detect the largest blue quadrilateral
+        max_area = 0
+        max_quad = None
+        for cnt in contours:
+            perimeter = cv2.arcLength(cnt, True)
+            approx = cv2.approxPolyDP(cnt, 0.02 * perimeter, True)
+            if len(approx) == 4 and cv2.contourArea(approx) > max_area:
+                max_area = cv2.contourArea(approx)
+                max_quad = approx
 
-    # @brief calculate road center
-    (rows,cols,channels) = cv_image.shape
+        if max_quad is not None:
+            # Create a mask for the blue quadrilateral
+            mask_quad = np.zeros_like(gray)
+            cv2.fillPoly(mask_quad, [max_quad.astype(int)], 255)
 
-    
-    
-   # Identify the row 2 pixels above the bottom edge
-    row_index_2 = cv_image.shape[0] - 2 - 1
+            # Adjust the mask to exclude blue quadrilaterals
+            non_blue_mask = (blue_channel < 1.8 * red_channel) | (blue_channel < 1.8 * green_channel)
+            combined_mask = mask_quad & non_blue_mask
 
-    # Find pixel values for that row
-    row_pixels_2 = cv_image[row_index_2, :, :]
+            # Find contours for non-blue quadrilaterals within the blue quadrilateral
+            contours, _ = cv2.findContours(combined_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-    # Calculate brightness for each pixel in the row
-    brightness_values_2 = np.sum(row_pixels_2[:, :3], axis=1)
+            # Detect the largest non-blue quadrilateral within the blue quadrilateral
+            max_non_blue_area = 0
+            max_non_blue_quad = None
+            for cnt in contours:
+                perimeter = cv2.arcLength(cnt, True)
+                approx = cv2.approxPolyDP(cnt, 0.02 * perimeter, True)
+                if len(approx) == 4 and cv2.contourArea(approx) > max_non_blue_area:
+                    max_non_blue_area = cv2.contourArea(approx)
+                    max_non_blue_quad = approx
 
-    # Find the coordinates of the leftmost and rightmost dark spots
-    dark_pixel_indices_2 = np.where(brightness_values_2 < 188)[0]
-    middle_spot=0
-    if len(dark_pixel_indices_2) > 0:
-        leftmost_dark_spot = dark_pixel_indices_2[0]
-        rightmost_dark_spot = dark_pixel_indices_2[-1]
-        middle_spot = (leftmost_dark_spot + rightmost_dark_spot) // 2
-        middle_coordinates = (middle_spot, row_index_2)
+            # Apply perspective transformation to the largest non-blue quadrilateral
+            if max_non_blue_quad is not None:
+                area_non_blue_quad = cv2.contourArea(max_non_blue_quad)
+                if area_non_blue_quad > 15000:
+                    max_non_blue_quad = self.order_points(max_non_blue_quad[:, 0, :])
+                    pts1 = np.float32(max_non_blue_quad)
+                    pts2 = np.float32([[0, 0], [600, 0], [600, 400], [0, 400]])
+                    matrix = cv2.getPerspectiveTransform(pts1, pts2)
+                    result = cv2.warpPerspective(cv_image, matrix, (600, 400))
 
-        # Draw a large red dot at the middle spot using OpenCV's circle function
-        cv2.circle(cv_image, middle_coordinates, 5, [0, 0, 255], -1)  # Red circle with r = 5
-        cv2.imshow("Image road", cv_image)
+                    # Take a picture of 'result' and save it
+                    cv2.imwrite("non_blue_quadrilateral_image_{}.jpg".format(rospy.Time.now()), result)
+                    print("Picture of the non-blue quadrilateral taken.")
+                    cv2.imshow("Perspective Transformation", result)
+
+            # Draw the contour of the non-blue quadrilateral
+            if max_non_blue_quad is not None:
+                cv2.drawContours(cv_image, [max_non_blue_quad.astype(int)], 0, (0, 0, 255), 3)
+
+        # Display the edge-detected image
+        cv2.imshow("Masked Image", filtered_image)
         cv2.waitKey(3)
-    else:
-        middle_coordinates = None
 
-    x_mid_of_frame = cols // 2
-
-    mid_frame = (x_mid_of_frame, row_index_2)
-    print(middle_coordinates)
-
-    
-    move = Twist()
-
-    if(x_mid_of_frame-middle_spot>0):
-        move.linear.x = 0.1
-        move.angular.z = 0.5
-    else:
-        move.linear.x = 0.1
-        move.angular.z = -0.5
-    try:
-      self.image_pub.publish(move)
-    except CvBridgeError as e:
-      print(e)
-
-
+    def order_points(self, pts):
+        rect = np.zeros((4, 2), dtype="float32")
+        s = pts.sum(axis=1)
+        diff = np.diff(pts, axis=1)
+        rect[0] = pts[np.argmin(s)]
+        rect[2] = pts[np.argmax(s)]
+        rect[1] = pts[np.argmin(diff)]
+        rect[3] = pts[np.argmax(diff)]
+        return rect
 
 def main(args):
-  lf = line_follower()
-  rospy.init_node('line_follower', anonymous=True)
-  try:
-    rospy.spin()
-  except KeyboardInterrupt:
-    print("Shutting down")
-  cv2.destroyAllWindows()
+    rospy.init_node('image_display', anonymous=True)
+    id = ImageDisplay()
+    try:
+        rospy.spin()
+    except KeyboardInterrupt:
+        print("Shutting down ROS Image display module")
+    cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     main(sys.argv)
-
-
