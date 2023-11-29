@@ -45,7 +45,7 @@ class ImageDisplay:
 
         if max_quad is not None:
             area = cv2.contourArea(max_quad)
-            if area > 25000:
+            if area > 20000:
                 # Reorder points and perform perspective transformation
                 max_quad = self.order_points(max_quad[:, 0, :])
                 pts1 = np.float32(max_quad)
