@@ -46,7 +46,6 @@ GRASS_ROAD = 5
 move = Twist()
 counter = 0
 state_machine = NORMAL_DRIVE
-
 ROBOT_SPEED = 0.35
 seen_purple_lines = 0
 wall_seen = False
@@ -90,11 +89,12 @@ class robot_driving:
         upper_purple = np.array([255, 15, 255])
         purple_pixels = 0
         purple_mask = cv2.inRange(image, lower_purple, upper_purple)
+        cv2.imshow("purple", purple_mask)
         for i in range(COLUMNS_IN_IMAGE):
-            for j in range(GRASS_ROW-100, GRASS_ROW+100):
+            for j in range(GRASS_ROW-2, GRASS_ROW+2):
                 if purple_mask[j, i] == 255:
                     purple_pixels += 1
-                    if purple_pixels > 5 and delta_t > 5:
+                    if purple_pixels > 1 and delta_t > 3:
                         last_purple = cur_time
                         return True
         return False
@@ -175,10 +175,10 @@ class robot_driving:
 
         global counter, move, state_machine, seen_purple_lines, wall_seen
         cv_image = self.bridge.imgmsg_to_cv2(ros_data, 'bgr8')
-        blur_image = cv2.GaussianBlur(cv_image, (7,7), 0)
-        blur_image = cv2.GaussianBlur(blur_image, (7,7), 0)
+        blur_image = cv2.GaussianBlur(cv_image, (3,3), 0)
+        blur_image2 = cv2.GaussianBlur(blur_image, (7,7), 0)
 
-        greyscale = cv2.cvtColor(blur_image, cv2.COLOR_BGR2GRAY)
+        greyscale = cv2.cvtColor(blur_image2, cv2.COLOR_BGR2GRAY)
 
         # Define the lower and upper bounds for black (low brightness)
         lower_white = np.array([185])  # Lower bound
@@ -212,7 +212,7 @@ class robot_driving:
         elif state_machine == GRASS_ROAD:
             upper_line = np.array([180, 230, 230])
             lower_line = np.array([130, 170, 180])
-            line_mask = cv2.inRange(blur_image, lower_line, upper_line)
+            line_mask = cv2.inRange(blur_image2, lower_line, upper_line)
             #cv2.imshow("Mask2", line_mask)
             line_position = self.locate_road(GRASS_ROW,line_mask)
             line2 = self.locate_road(SCAN_ROW,line_mask)
@@ -225,15 +225,15 @@ class robot_driving:
         elif state_machine == OFFROAD:
             if not wall_seen:
                 move.linear.x = 0.4
-                move.angular.z = 0.3
+                move.angular.z = 0.2
                 line_position = 0
-            wall = self.locate_wall(WALL_ROW, blur_image)
+            wall = self.locate_wall(WALL_ROW, blur_image2)
             if wall != -1:
                 print("wall seen")
                 wall_seen = True
-                move.linear.x = 0.4
-                move.angular.z = -0.5
-                line_position = wall
+                move.linear.x = 0.6
+                move.angular.z = -0.3
+                line_position = 0
                 #cv2.circle(cv_image, (line_position, WALL_ROW), 5, (0,0,255), -1)
             else:
                 move.linear.x = 0.3
