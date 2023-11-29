@@ -19,7 +19,7 @@ class ImageDisplay:
     def callback(self, ros_data):
         cv_image = self.bridge.imgmsg_to_cv2(ros_data, 'bgr8')
 
-        # Apply the filter
+        # Apply the filter for blue color
         blue_channel = cv_image[:,:,0]
         red_channel = cv_image[:,:,2]
         green_channel = cv_image[:,:,1]
@@ -30,10 +30,10 @@ class ImageDisplay:
         # Convert to grayscale
         gray = cv2.cvtColor(filtered_image, cv2.COLOR_BGR2GRAY)
 
-        # Find contours
+        # Find contours for blue quadrilateral
         contours, _ = cv2.findContours(gray, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-        # Detect the largest quadrilateral
+        # Detect the largest blue quadrilateral
         max_area = 0
         max_quad = None
         for cnt in contours:
@@ -44,22 +44,45 @@ class ImageDisplay:
                 max_quad = approx
 
         if max_quad is not None:
-            area = cv2.contourArea(max_quad)
-            if area > 20000:
-                # Reorder points and perform perspective transformation
-                max_quad = self.order_points(max_quad[:, 0, :])
-                pts1 = np.float32(max_quad)
-                pts2 = np.float32([[0, 0], [500, 0], [500, 500], [0, 500]])
-                matrix = cv2.getPerspectiveTransform(pts1, pts2)
-                result = cv2.warpPerspective(cv_image, matrix, (500, 500))
+            # Create a mask for the blue quadrilateral
+            mask_quad = np.zeros_like(gray)
+            cv2.fillPoly(mask_quad, [max_quad.astype(int)], 255)
 
-                # Take a picture of 'result' and save it
-                cv2.imwrite("quadrilateral_image_{}.jpg".format(rospy.Time.now()), result)
-                print("Picture of the quadrilateral taken.")
-                cv2.imshow("Perspective Transformation", result)
+            # Adjust the mask to exclude blue quadrilaterals
+            non_blue_mask = (blue_channel < 1.8 * red_channel) | (blue_channel < 1.8 * green_channel)
+            combined_mask = mask_quad & non_blue_mask
 
-            # Draw the contour
-            cv2.drawContours(cv_image, [max_quad.astype(int)], 0, (0, 255, 0), 3)
+            # Find contours for non-blue quadrilaterals within the blue quadrilateral
+            contours, _ = cv2.findContours(combined_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+            # Detect the largest non-blue quadrilateral within the blue quadrilateral
+            max_non_blue_area = 0
+            max_non_blue_quad = None
+            for cnt in contours:
+                perimeter = cv2.arcLength(cnt, True)
+                approx = cv2.approxPolyDP(cnt, 0.02 * perimeter, True)
+                if len(approx) == 4 and cv2.contourArea(approx) > max_non_blue_area:
+                    max_non_blue_area = cv2.contourArea(approx)
+                    max_non_blue_quad = approx
+
+            # Apply perspective transformation to the largest non-blue quadrilateral
+            if max_non_blue_quad is not None:
+                area_non_blue_quad = cv2.contourArea(max_non_blue_quad)
+                if area_non_blue_quad > 15000:
+                    max_non_blue_quad = self.order_points(max_non_blue_quad[:, 0, :])
+                    pts1 = np.float32(max_non_blue_quad)
+                    pts2 = np.float32([[0, 0], [600, 0], [600, 400], [0, 400]])
+                    matrix = cv2.getPerspectiveTransform(pts1, pts2)
+                    result = cv2.warpPerspective(cv_image, matrix, (600, 400))
+
+                    # Take a picture of 'result' and save it
+                    cv2.imwrite("non_blue_quadrilateral_image_{}.jpg".format(rospy.Time.now()), result)
+                    print("Picture of the non-blue quadrilateral taken.")
+                    cv2.imshow("Perspective Transformation", result)
+
+            # Draw the contour of the non-blue quadrilateral
+            if max_non_blue_quad is not None:
+                cv2.drawContours(cv_image, [max_non_blue_quad.astype(int)], 0, (0, 0, 255), 3)
 
         # Display the edge-detected image
         cv2.imshow("Masked Image", filtered_image)
