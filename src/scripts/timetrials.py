@@ -74,7 +74,7 @@ class robot_driving:
         self.publisher2.publish('TeamName,password,0,NA')
         global move
         # move.linear.x = 0.5
-        # self.publisher.publish(move)
+        self.publisher.publish(move)
 
 
         if VERBOSE :
