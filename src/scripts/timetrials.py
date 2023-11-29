@@ -155,7 +155,7 @@ class robot_driving:
         global move
         if(self.steering_val == -1 and self.prev_steering_val == -1): #robot initialization - face road
             move.linear.x = 0
-            move.angular.z = 0.05
+            move.angular.z = 0.5
         elif(self.prev_steering_val == -1) : #first time seeing road, begin driving forward
             self.prev_steering_val = self.steering_val
             move.linear.x = speed
@@ -181,7 +181,7 @@ class robot_driving:
         greyscale = cv2.cvtColor(blur_image2, cv2.COLOR_BGR2GRAY)
 
         # Define the lower and upper bounds for black (low brightness)
-        lower_white = np.array([185])  # Lower bound
+        lower_white = np.array([220])  # Lower bound
         upper_white = np.array([255])  # Upper bound 
 
         black_mask = cv2.inRange(greyscale, lower_white, upper_white)
@@ -191,8 +191,8 @@ class robot_driving:
             line_position = self.locate_road(SCAN_ROW,black_mask)
             #cv2.circle(cv_image, (line_position, SCAN_ROW), 5, (0,0,255), -1)
             self.steering_val = line_position
-            self.get_steering_val(speed=ROBOT_SPEED+.04)
-            if counter == 267:
+            self.get_steering_val(speed=ROBOT_SPEED+.02)
+            if counter == 300:
                 state_machine = TRUCK_LOOP
                 move.linear.x = 0
                 move.angular.z = 1
@@ -234,17 +234,22 @@ class robot_driving:
             if wall != -1:
                 print("wall seen")
                 wall_seen = True
-                move.linear.x = 0.8
+                move.linear.x = 0.9
                 move.angular.z = -0.3
                 line_position = 0
                 #cv2.circle(cv_image, (line_position, WALL_ROW), 5, (0,0,255), -1)
             else:
-                move.linear.x = 0.7
+                move.linear.x = 0.8
                 move.angular.z = 0.3
                 line_position = 0
         elif state_machine == MOUNTAIN:
-            line_position = 0
-            counter = 2000
+            self.prev_steering_val = -1
+            upper_line = np.array([180, 230, 230])
+            lower_line = np.array([130, 170, 180])
+            line_mask = cv2.inRange(blur_image2, lower_line, upper_line)
+            line_position = self.locate_road(GRASS_ROW,line_mask)
+            self.steering_val = line_position
+            self.get_steering_val(speed=ROBOT_SPEED-0.1)
             
 
 
