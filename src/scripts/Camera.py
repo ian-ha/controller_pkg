@@ -13,7 +13,6 @@ class ImageDisplay:
     def __init__(self):
         self.bridge = CvBridge()
         self.subscriber = rospy.Subscriber("/R1/pi_camera/image_raw", Image, self.callback, queue_size=1)
-        self.picture_taken = False  # Attribute to track if the picture has been taken
         if VERBOSE:
             print("Subscribed to /R1/pi_camera/image_raw")
 
@@ -46,7 +45,7 @@ class ImageDisplay:
 
         if max_quad is not None:
             area = cv2.contourArea(max_quad)
-            if area > 25000 and not self.picture_taken:
+            if area > 25000:
                 # Reorder points and perform perspective transformation
                 max_quad = self.order_points(max_quad[:, 0, :])
                 pts1 = np.float32(max_quad)
@@ -55,8 +54,7 @@ class ImageDisplay:
                 result = cv2.warpPerspective(cv_image, matrix, (500, 500))
 
                 # Take a picture of 'result' and save it
-                cv2.imwrite("quadrilateral_image.jpg", result)
-                self.picture_taken = True  # Set the flag to True after taking the picture
+                cv2.imwrite("quadrilateral_image_{}.jpg".format(rospy.Time.now()), result)
                 print("Picture of the quadrilateral taken.")
                 cv2.imshow("Perspective Transformation", result)
 
@@ -65,7 +63,6 @@ class ImageDisplay:
 
         # Display the edge-detected image
         cv2.imshow("Masked Image", filtered_image)
-        cv2.imshow
         cv2.waitKey(3)
 
     def order_points(self, pts):
