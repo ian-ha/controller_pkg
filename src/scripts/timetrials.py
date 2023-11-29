@@ -46,7 +46,7 @@ GRASS_ROAD = 5
 move = Twist()
 counter = 0
 state_machine = NORMAL_DRIVE
-ROBOT_SPEED = 0.35
+ROBOT_SPEED = 0.38
 seen_purple_lines = 0
 wall_seen = False
 last_purple = time.time()
@@ -192,7 +192,7 @@ class robot_driving:
             #cv2.circle(cv_image, (line_position, SCAN_ROW), 5, (0,0,255), -1)
             self.steering_val = line_position
             self.get_steering_val()
-            if counter == 340:
+            if counter == 310:
                 state_machine = TRUCK_LOOP
                 print("entering truck loop")
 
@@ -231,13 +231,13 @@ class robot_driving:
             if wall != -1:
                 print("wall seen")
                 wall_seen = True
-                move.linear.x = 0.6
+                move.linear.x = 0.7
                 move.angular.z = -0.3
                 line_position = 0
                 #cv2.circle(cv_image, (line_position, WALL_ROW), 5, (0,0,255), -1)
             else:
-                move.linear.x = 0.3
-                move.angular.z = 0.6
+                move.linear.x = 0.6
+                move.angular.z = 0.4
                 line_position = 0
 
 
