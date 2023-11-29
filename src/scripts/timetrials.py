@@ -147,7 +147,7 @@ class robot_driving:
         
         return -1 # value returned if there is no road on the screen
 
-    def get_steering_val(self):
+    def get_steering_val(self,speed=ROBOT_SPEED):
         """
         @brief modifies prev_steering_val, move
         uses steering value to find the track, then follow it, updating move each time it is called
@@ -158,10 +158,10 @@ class robot_driving:
             move.angular.z = 0.05
         elif(self.prev_steering_val == -1) : #first time seeing road, begin driving forward
             self.prev_steering_val = self.steering_val
-            move.linear.x = ROBOT_SPEED
+            move.linear.x = speed
             move.angular.z = 0
         elif(self.steering_val != -1): #if seeing road, set move command based on difference of road position from center
-            move.linear.x = ROBOT_SPEED
+            move.linear.x = speed
             move.angular.z = -(self.steering_val-STEERING_CENTER)/125
             self.prev_steering_val = self.steering_val
         else:
@@ -191,16 +191,19 @@ class robot_driving:
             line_position = self.locate_road(SCAN_ROW,black_mask)
             #cv2.circle(cv_image, (line_position, SCAN_ROW), 5, (0,0,255), -1)
             self.steering_val = line_position
-            self.get_steering_val()
-            if counter == 310:
+            self.get_steering_val(speed=ROBOT_SPEED+.04)
+            if counter == 267:
                 state_machine = TRUCK_LOOP
+                move.linear.x = 0
+                move.angular.z = 1
                 print("entering truck loop")
 
         elif state_machine == PEDESTRIAN:
             line_position = self.locate_road(SCAN_ROW,black_mask)
             state_machine = NORMAL_DRIVE
         elif state_machine == TRUCK_LOOP:
-            line_position = self.__scan_row_for_road(SCAN_ROW,black_mask,True) + 350
+            line_position = min([self.__scan_row_for_road(SCAN_ROW,black_mask,True) + 350,1279])
+        
             #cv2.circle(cv_image, (line_position, SCAN_ROW), 5, (0,0,255), -1)
             self.steering_val = line_position
             if line_position == -1:
@@ -220,7 +223,7 @@ class robot_driving:
             line_position = (line_position + line2 )/2
             #cv2.circle(cv_image, (line_position, GRASS_ROW), 5, (0,0,255), -1)
             self.steering_val = line_position
-            self.get_steering_val()
+            self.get_steering_val(speed=ROBOT_SPEED+.03)
 
         elif state_machine == OFFROAD:
             if not wall_seen:
@@ -231,15 +234,18 @@ class robot_driving:
             if wall != -1:
                 print("wall seen")
                 wall_seen = True
-                move.linear.x = 0.7
+                move.linear.x = 0.8
                 move.angular.z = -0.3
                 line_position = 0
                 #cv2.circle(cv_image, (line_position, WALL_ROW), 5, (0,0,255), -1)
             else:
-                move.linear.x = 0.6
-                move.angular.z = 0.4
+                move.linear.x = 0.7
+                move.angular.z = 0.3
                 line_position = 0
-
+        elif state_machine == MOUNTAIN:
+            line_position = 0
+            counter = 2000
+            
 
 
         else:
@@ -255,6 +261,11 @@ class robot_driving:
             if seen_purple_lines == 2:
                 state_machine = OFFROAD
                 print("entering offroad")
+            if seen_purple_lines == 3:
+                move.linear.x = 0
+                move.angular.z = 0
+                state_machine = MOUNTAIN
+                print("entering mountain")
         
         self.publisher.publish(move)
         
@@ -263,7 +274,7 @@ class robot_driving:
             state = self.prev_state
         else:
             state = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-            line_position = math.floor(line_position/COLUMNS_IN_IMAGE*len(state))
+            line_position = math.floor(line_position/COLUMNS_IN_IMAGE*len(state)-1)
             state[int(line_position)] = 1
         
         self.prev_state = state
@@ -279,7 +290,7 @@ class robot_driving:
         cv2.imshow("Image window", cv_image)
         cv2.waitKey(3)
 
-        if counter == 2000:
+        if counter >= 2000:
             rospy.sleep(3)
             move.linear.x = 0
             move.angular.z = 0
