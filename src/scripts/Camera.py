@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 
 VERBOSE = False
-IMG_AREA = 16000
+IMG_AREA_THRESHOLD = 16000
 
 class ImageDisplay:
     def __init__(self):
@@ -77,7 +77,7 @@ class ImageDisplay:
             if max_non_blue_quad is not None:
                 area_non_blue_quad = cv2.contourArea(max_non_blue_quad)
                 current_time = rospy.Time.now()
-                if area_non_blue_quad > 15000 and not self.image_captured and (current_time - self.last_image_time).to_sec() > 2.5:
+                if area_non_blue_quad > IMG_AREA_THRESHOLD and not self.image_captured and (current_time - self.last_image_time).to_sec() > 2.5:
                     k+=1
                     max_non_blue_quad = self.order_points(max_non_blue_quad[:, 0, :])
                     pts1 = np.float32(max_non_blue_quad)
@@ -91,7 +91,7 @@ class ImageDisplay:
                     cv2.imshow("Perspective Transformation", result)
                     self.image_captured = True
                     self.last_image_time = current_time
-                elif area_non_blue_quad <= 15000:
+                elif area_non_blue_quad <= IMG_AREA_THRESHOLD:
                     self.image_captured = False
 
             # Draw the contour of the non-blue quadrilateral
