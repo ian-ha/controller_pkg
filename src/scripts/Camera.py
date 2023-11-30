@@ -9,15 +9,15 @@ import numpy as np
 import random
 
 VERBOSE = False
-IMG_AREA_THRESHOLD = 25000
+IMG_AREA_THRESHOLD = 21000
 TIME_THRESHOLD = 2.5
-plate_num = 0
 
 class ImageDisplay:
     def __init__(self):
         self.bridge = CvBridge()
         self.subscriber = rospy.Subscriber("/R1/pi_camera/image_raw", Image, self.callback, queue_size=1)
         self.last_image_time = rospy.Time()
+        self.plate_num = 0
         self.image_captured = False
         if VERBOSE:
             print("Subscribed to /R1/pi_camera/image_raw")
@@ -87,10 +87,10 @@ class ImageDisplay:
 
                     # Take a picture of 'result' and save it
 
-                    plate_num+=1 # plate number
+                    self.plate_num+=1 # plate number
 
-                    cv2.imwrite("sign_{}.jpg".format(plate_num), result)
-                    print("Picture of the non-blue quadrilateral taken.")
+                    cv2.imwrite("sign_{}.jpg".format(self.plate_num), result)
+                    print("Picture of the sign_{} taken.".format(self.plate_num))
                     cv2.imshow("Perspective Transformation", result)
                     self.image_captured = True
                     self.last_image_time = current_time

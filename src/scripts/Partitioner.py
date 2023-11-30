@@ -3,7 +3,7 @@ import numpy as np
 import os
 
 # Define the path to the image within this environment
-image_path = '/home/fizzer/ros_ws/src/controller_pkg/src/scripts/sign_1.jpg'
+image_path = '/home/fizzer/ros_ws/src/controller_pkg/src/scripts/sign_6.jpg'
 
 # Define the directory to save individual characters
 save_dir = '/home/fizzer/ros_ws/src/controller_pkg/src/scripts/IndividualCharacters/'
@@ -47,6 +47,10 @@ for i, cnt in enumerate(sorted_contours):
     if x < boundary_x and y < height // 2:
         continue
     
+    # Too get rid of extranous images
+    if w < 16 or h < 16:
+         continue
+
     # Extract the character
     char_image = image[y:y+h, x:x+w]
 
