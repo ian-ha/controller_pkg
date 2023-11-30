@@ -36,13 +36,6 @@ COLUMNS_IN_IMAGE = 1279
 GRASS_ROW = BOTTOM_ROW_OF_IMAGE - 275
 GRASS_2 = BOTTOM_ROW_OF_IMAGE - 200
 VERBOSE=False
-<<<<<<< HEAD
-
-
-move = Twist()
-counter = 0
-
-=======
 NORMAL_DRIVE = 0
 PEDESTRIAN = 1
 TRUCK_LOOP = 2
@@ -53,11 +46,10 @@ GRASS_ROAD = 5
 move = Twist()
 counter = 0
 state_machine = NORMAL_DRIVE
-ROBOT_SPEED = 0.38
+ROBOT_SPEED = 0.2
 seen_purple_lines = 0
 wall_seen = False
 last_purple = time.time()
->>>>>>> d5496e0f9f77218e0d4d88c17072e485ebea95de
 
 class robot_driving:
     """Class that subsribes to image feed"""
@@ -166,19 +158,11 @@ class robot_driving:
             move.angular.z = 0.5
         elif(self.prev_steering_val == -1) : #first time seeing road, begin driving forward
             self.prev_steering_val = self.steering_val
-<<<<<<< HEAD
-            move.linear.x = 0.2
-            move.angular.z = 0
-        elif(self.steering_val != -1): #if seeing road, set move command based on difference of road position from center
-            move.linear.x = 0.2
-            move.angular.z = -(self.steering_val-STEERING_CENTER)/150
-=======
             move.linear.x = speed
             move.angular.z = 0
         elif(self.steering_val != -1): #if seeing road, set move command based on difference of road position from center
             move.linear.x = speed
             move.angular.z = -(self.steering_val-STEERING_CENTER)/125
->>>>>>> d5496e0f9f77218e0d4d88c17072e485ebea95de
             self.prev_steering_val = self.steering_val
         else:
             move.linear.x = 0.0 #if road is lost, rotate in direction road was last seen until road is found again
@@ -208,7 +192,7 @@ class robot_driving:
             #cv2.circle(cv_image, (line_position, SCAN_ROW), 5, (0,0,255), -1)
             self.steering_val = line_position
             self.get_steering_val(speed=ROBOT_SPEED+.02)
-            if counter == 300:
+            if counter == 500:
                 state_machine = TRUCK_LOOP
                 move.linear.x = 0
                 move.angular.z = 1
@@ -225,9 +209,7 @@ class robot_driving:
             if line_position == -1:
                 line_position = 1
             self.get_steering_val()
-            if counter == 600:
-                state_machine = NORMAL_DRIVE
-                print("entering normal drive")
+            
         elif state_machine == GRASS_ROAD:
             upper_line = np.array([180, 230, 230])
             lower_line = np.array([130, 170, 180])
