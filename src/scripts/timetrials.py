@@ -61,7 +61,7 @@ MOUNTAIN2_UPPER_HSV = np.array([54, 115, 233])
 move = Twist()
 counter = 0
 state_machine = NORMAL_DRIVE
-ROBOT_SPEED = 0.38
+ROBOT_SPEED = 0.4
 seen_purple_lines = 0
 wall_seen = False
 road_located_after_yoda = False
@@ -203,11 +203,11 @@ class robot_driving:
             move.angular.z = 0
         elif(self.steering_val != -1): #if seeing road, set move command based on difference of road position from center
             move.linear.x = speed
-            move.angular.z = -(self.steering_val-STEERING_CENTER)/125
+            move.angular.z = -(self.steering_val-STEERING_CENTER)/115
             self.prev_steering_val = self.steering_val
         else:
             move.linear.x = 0.0 #if road is lost, rotate in direction road was last seen until road is found again
-            move.angular.z = -(self.prev_steering_val-STEERING_CENTER)/125
+            move.angular.z = -(self.prev_steering_val-STEERING_CENTER)/115
 
 
     def callback(self, ros_data):
@@ -234,7 +234,7 @@ class robot_driving:
             #cv2.circle(cv_image, (line_position, SCAN_ROW), 5, (0,0,255), -1)
             self.steering_val = line_position
             self.get_steering_val(speed=ROBOT_SPEED+.02)
-            if counter == 305:
+            if counter == 285:
                 state_machine = TRUCK_LOOP
                 move.linear.x = 0
                 move.angular.z = 1
@@ -265,7 +265,7 @@ class robot_driving:
             line_position = (line_position + line2 )/2
             #cv2.circle(cv_image, (line_position, GRASS_ROW), 5, (0,0,255), -1)
             self.steering_val = line_position
-            self.get_steering_val(speed=ROBOT_SPEED+.03)
+            self.get_steering_val(speed=ROBOT_SPEED)
 
         elif state_machine == OFFROAD:
             if not wall_seen:
@@ -276,7 +276,7 @@ class robot_driving:
             if wall != -1:
                 print("wall seen")
                 wall_seen = True
-                move.linear.x = 0.9
+                move.linear.x = 1
                 move.angular.z = -0.3
                 line_position = 0
                 #cv2.circle(cv_image, (line_position, WALL_ROW), 5, (0,0,255), -1)
@@ -287,7 +287,8 @@ class robot_driving:
         elif state_machine == MOUNTAIN_BASE:
             if(self.steering_val == -1 and self.prev_steering_val != -1):
                 frames_since_line += 1
-                if frames_since_line > 10:
+                if frames_since_line > 5:
+                    
                     state_machine = TUNNEL_MOUTH
                     frames_since_line = 0
                     print("entering tunnel")
@@ -307,11 +308,11 @@ class robot_driving:
             tunnel_mask = cv2.inRange(hsv_blur, TUNNEL_LOWER_HSV, TUNNEL_UPPER_HSV)
             line_position = self.locate_road(SCAN_ROW-200, tunnel_mask, from_center=False)
             self.steering_val = line_position
-            if(counter - self.count_at_tunnel > 100):
+            if(counter - self.count_at_tunnel > 70):
                 state_machine = TUNNEL_INSIDE
                 frames_since_line = 0
                 print("inside tunnel")
-            self.get_steering_val(speed=ROBOT_SPEED-0.3)
+            self.get_steering_val(speed=ROBOT_SPEED-0.25)
             
             cv2.imshow("tunnel", tunnel_mask)
         elif state_machine == TUNNEL_INSIDE:
@@ -323,7 +324,7 @@ class robot_driving:
                 state_machine = CLIMING_MOUNTAIN
                 self.tunnel_brightness = np.mean(hsv_blur[BOTTOM_ROW_OF_IMAGE-100:BOTTOM_ROW_OF_IMAGE,0:COLUMNS_IN_IMAGE])
                 print("climing the mountain")
-            self.get_steering_val(speed=ROBOT_SPEED-0.1)
+            self.get_steering_val(speed=ROBOT_SPEED)
             cv2.imshow("tunnel", tunnel_mask)
         elif state_machine == CLIMING_MOUNTAIN:
             hsv_blur = cv2.GaussianBlur(cv_hsv, (3,3), 0)
@@ -332,7 +333,7 @@ class robot_driving:
             line2 = self.locate_road(GRASS_ROW, mountain_mask)
             line_position = (line_position + line2 )/2
             self.steering_val = line_position
-            self.get_steering_val(speed=ROBOT_SPEED-0.1)
+            self.get_steering_val(speed=ROBOT_SPEED)
             #change back to grass road when brightness of bottom quarter of image increases
             if np.mean(cv_hsv[BOTTOM_ROW_OF_IMAGE-100:BOTTOM_ROW_OF_IMAGE,0:COLUMNS_IN_IMAGE]) - self.tunnel_brightness > 10:
                 state_machine = CLIMING_MOUNTAIN2
