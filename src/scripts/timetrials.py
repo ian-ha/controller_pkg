@@ -308,7 +308,7 @@ class robot_driving:
             tunnel_mask = cv2.inRange(hsv_blur, TUNNEL_LOWER_HSV, TUNNEL_UPPER_HSV)
             line_position = self.locate_road(SCAN_ROW-200, tunnel_mask, from_center=False)
             self.steering_val = line_position
-            if(counter - self.count_at_tunnel > 70):
+            if(counter - self.count_at_tunnel > 50):
                 state_machine = TUNNEL_INSIDE
                 frames_since_line = 0
                 print("inside tunnel")
