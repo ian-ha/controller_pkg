@@ -3,7 +3,7 @@ import numpy as np
 import os
 
 # Define the path to the image within this environment
-image_path = '/home/fizzer/ros_ws/src/controller_pkg/src/scripts/sign_5.jpg'
+image_path = '/home/fizzer/ros_ws/src/controller_pkg/src/scripts/sign_1.jpg'
 
 # Define the directory to save individual characters
 save_dir = '/home/fizzer/ros_ws/src/controller_pkg/src/scripts/IndividualCharacters/'
@@ -42,13 +42,21 @@ saved_images = []
 
 
 
+
+# Extract filename without extension and convert it to a list of characters
+filename_no_extension = os.path.splitext(os.path.basename(image_path))[0]
+characters = list(filename_no_extension)
+
+# Counter for characters
+char_counter = 0
+
 # Extract and save individual characters
 for i, cnt in enumerate(sorted_contours):
     x, y, w, h = cv2.boundingRect(cnt)
 
     if x < boundary_x and y < height // 2:
         continue
-    
+
     # Too get rid of extraneous images
     if w < 16 or h < 16:
          continue
@@ -56,45 +64,56 @@ for i, cnt in enumerate(sorted_contours):
     # Extract the character
     char_image = image[y:y+h, x:x+w]
 
-    # If the width is at least 1.4 times the height and less than twice, split it into two
-    if 1.4 * h <= w < 2.0 * h:
-        mid = w // 2
-        char_image_left = char_image[:, :mid]
-        char_image_right = char_image[:, mid:]
+    # Check if there are enough characters left in the list
+    if char_counter < len(characters):
+        char_name = characters[char_counter]
 
-        # Save the left part of the character image
-        filename_left = os.path.join(save_dir, f'char_{i+1}_left.png')
-        cv2.imwrite(filename_left, char_image_left)
-        saved_images.append(filename_left)
+        # If the width is at least 1.4 times the height and less than twice, split it into two
+        if 1.4 * h <= w < 2.0 * h:
+            mid = w // 2
+            char_image_left = char_image[:, :mid]
+            char_image_right = char_image[:, mid:]
 
-        # Save the right part of the character image
-        filename_right = os.path.join(save_dir, f'char_{i+1}_right.png')
-        cv2.imwrite(filename_right, char_image_right)
-        saved_images.append(filename_right)
+            # Save the left part of the character image
+            filename_left = os.path.join(save_dir, f'{char_name}_left.png')
+            cv2.imwrite(filename_left, char_image_left)
+            saved_images.append(filename_left)
 
-    # If the width is at least twice the height, split it into three
-    elif w >= 2.0 * h:
-        part_width = w // 3
-        char_image_left = char_image[:, :part_width]
-        char_image_middle = char_image[:, part_width:2*part_width]
-        char_image_right = char_image[:, 2*part_width:]
+            # Save the right part of the character image
+            filename_right = os.path.join(save_dir, f'{char_name}_right.png')
+            cv2.imwrite(filename_right, char_image_right)
+            saved_images.append(filename_right)
 
-        # Save each part of the character image
-        filename_left = os.path.join(save_dir, f'char_{i+1}_left.png')
-        cv2.imwrite(filename_left, char_image_left)
-        saved_images.append(filename_left)
+            char_counter += 1  # Increment character counter after saving both parts
 
-        filename_middle = os.path.join(save_dir, f'char_{i+1}_middle.png')
-        cv2.imwrite(filename_middle, char_image_middle)
-        saved_images.append(filename_middle)
+        # If the width is at least twice the height, split it into three
+        elif w >= 2.0 * h:
+            part_width = w // 3
+            char_image_left = char_image[:, :part_width]
+            char_image_middle = char_image[:, part_width:2*part_width]
+            char_image_right = char_image[:, 2*part_width:]
 
-        filename_right = os.path.join(save_dir, f'char_{i+1}_right.png')
-        cv2.imwrite(filename_right, char_image_right)
-        saved_images.append(filename_right)
+            # Save each part of the character image
+            filename_left = os.path.join(save_dir, f'{char_name}_left.png')
+            cv2.imwrite(filename_left, char_image_left)
+            saved_images.append(filename_left)
 
-    else:
-        # Save the character image
-        filename = os.path.join(save_dir, f'char_{i+1}.png')
-        cv2.imwrite(filename, char_image)
-        saved_images.append(filename)
+            filename_middle = os.path.join(save_dir, f'{char_name}_middle.png')
+            cv2.imwrite(filename_middle, char_image_middle)
+            saved_images.append(filename_middle)
+
+            filename_right = os.path.join(save_dir, f'{char_name}_right.png')
+            cv2.imwrite(filename_right, char_image_right)
+            saved_images.append(filename_right)
+
+            char_counter += 1  # Increment character counter after saving all parts
+
+        else:
+            # Save the character image
+            filename = os.path.join(save_dir, f'{char_name}.png')
+            cv2.imwrite(filename, char_image)
+            saved_images.append(filename)
+
+            char_counter += 1  # Increment character counter after saving the character
+
 
