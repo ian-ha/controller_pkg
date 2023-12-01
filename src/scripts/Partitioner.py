@@ -40,6 +40,8 @@ if not os.path.exists(save_dir):
 # List to store saved image file paths for review
 saved_images = []
 
+
+
 # Extract and save individual characters
 for i, cnt in enumerate(sorted_contours):
     x, y, w, h = cv2.boundingRect(cnt)
@@ -47,15 +49,15 @@ for i, cnt in enumerate(sorted_contours):
     if x < boundary_x and y < height // 2:
         continue
     
-    # Too get rid of extranous images
+    # Too get rid of extraneous images
     if w < 16 or h < 16:
          continue
 
     # Extract the character
     char_image = image[y:y+h, x:x+w]
 
-    # If the width is at least 1.4 times the height, split it into two
-    if w >= 1.4 * h:
+    # If the width is at least 1.4 times the height and less than twice, split it into two
+    if 1.4 * h <= w < 2.0 * h:
         mid = w // 2
         char_image_left = char_image[:, :mid]
         char_image_right = char_image[:, mid:]
@@ -70,8 +72,29 @@ for i, cnt in enumerate(sorted_contours):
         cv2.imwrite(filename_right, char_image_right)
         saved_images.append(filename_right)
 
+    # If the width is at least twice the height, split it into three
+    elif w >= 2.0 * h:
+        part_width = w // 3
+        char_image_left = char_image[:, :part_width]
+        char_image_middle = char_image[:, part_width:2*part_width]
+        char_image_right = char_image[:, 2*part_width:]
+
+        # Save each part of the character image
+        filename_left = os.path.join(save_dir, f'char_{i+1}_left.png')
+        cv2.imwrite(filename_left, char_image_left)
+        saved_images.append(filename_left)
+
+        filename_middle = os.path.join(save_dir, f'char_{i+1}_middle.png')
+        cv2.imwrite(filename_middle, char_image_middle)
+        saved_images.append(filename_middle)
+
+        filename_right = os.path.join(save_dir, f'char_{i+1}_right.png')
+        cv2.imwrite(filename_right, char_image_right)
+        saved_images.append(filename_right)
+
     else:
         # Save the character image
         filename = os.path.join(save_dir, f'char_{i+1}.png')
         cv2.imwrite(filename, char_image)
         saved_images.append(filename)
+
