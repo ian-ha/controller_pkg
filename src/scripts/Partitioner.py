@@ -3,7 +3,7 @@ import numpy as np
 import os
 
 # Define the path to the image within this environment
-image_path = '/home/fizzer/ros_ws/src/controller_pkg/src/scripts/sign_6.jpg'
+image_path = '/home/fizzer/ros_ws/src/controller_pkg/src/scripts/sign_5.jpg'
 
 # Define the directory to save individual characters
 save_dir = '/home/fizzer/ros_ws/src/controller_pkg/src/scripts/IndividualCharacters/'

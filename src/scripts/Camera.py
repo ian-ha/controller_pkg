@@ -89,8 +89,18 @@ class ImageDisplay:
 
                     self.plate_num+=1 # plate number
 
-                    cv2.imwrite("sign_{}.jpg".format(self.plate_num), result)
-                    print("Picture of the sign_{} taken.".format(self.plate_num))
+                    # Plates Directory below:
+
+                    # '/home/fizzer/ros_ws/src/2023_competition/enph353/enph353_gazebo/scripts/plates.csv'
+
+                    plate_content = self.get_plate_content(self.plate_num, '/home/fizzer/ros_ws/src/2023_competition/enph353/enph353_gazebo/scripts/plates.csv')
+                    if plate_content:
+                        filename = "{}.png".format(plate_content)
+                        cv2.imwrite(filename, result)
+                        print("Picture of {} taken.".format(filename))
+                    else:
+                        print("No plate content found for plate number {}".format(self.plate_num))
+
                     cv2.imshow("Perspective Transformation", result)
                     self.image_captured = True
                     self.last_image_time = current_time
@@ -114,6 +124,15 @@ class ImageDisplay:
         rect[1] = pts[np.argmin(diff)]
         rect[3] = pts[np.argmax(diff)]
         return rect
+    
+    def get_plate_content(self, plate_num, file_path):
+        with open(file_path, 'r') as file:
+            lines = file.readlines()
+            if 0 <= plate_num - 1 < len(lines):
+                content = lines[plate_num - 1].strip() # Adjust for zero-indexing
+                return content.replace(',', '').replace(' ', '')
+            else:
+                return None
 
 def main(args):
     rospy.init_node('image_display', anonymous=True)
