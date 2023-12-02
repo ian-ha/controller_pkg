@@ -7,8 +7,12 @@ import random
 target_width = 42
 target_height = 60
 
+# HSV values
+lower_hsv = np.array([80, 114, 60])
+upper_hsv = np.array([170, 250, 230])
+
 # Define the path to the image within this environment
-image_path = '/home/fizzer/ros_ws/src/controller_pkg/src/scripts/VICTIMWBACTERIA.jpg'
+image_path = '/home/fizzer/ros_ws/src/controller_pkg/src/scripts/PLACEDBASEMENT.jpg'
 
 # Define the directory to save individual characters
 save_dir = '/home/fizzer/ros_ws/src/controller_pkg/src/scripts/IndividualCharacters/'
@@ -90,14 +94,21 @@ for i, cnt in enumerate(sorted_contours):
             random_number_left = random.randint(10, 99)
             random_number_right = random.randint(10, 99)
 
+            # Apply HSV filter:
+            hsv_image_L = cv2.cvtColor(char_image_left, cv2.COLOR_BGR2HSV)
+            mask_L = cv2.inRange(hsv_image_L, lower_hsv, upper_hsv)
+
+            hsv_image_R = cv2.cvtColor(char_image_right, cv2.COLOR_BGR2HSV)
+            mask_R = cv2.inRange(hsv_image_R, lower_hsv, upper_hsv)
+
             # Save the left part of the character image
             filename_left = os.path.join(save_dir, f'{char_name_Left}_{order_indexLR-1}_{random_number_left}.png')
-            cv2.imwrite(filename_left, char_image_left)
+            cv2.imwrite(filename_left, mask_L)
             saved_images.append(filename_left)
 
             # Save right part
             filename_right = os.path.join(save_dir, f'{char_name_Right}_{order_indexLR}_{random_number_right}.png')
-            cv2.imwrite(filename_right, char_image_right)
+            cv2.imwrite(filename_right, mask_R)
             saved_images.append(filename_right)
 
 
@@ -126,19 +137,30 @@ for i, cnt in enumerate(sorted_contours):
             random_number_middle = random.randint(10, 99)
             random_number_right = random.randint(10, 99)
 
+            # Apply HSV filter:
+            hsv_image_l = cv2.cvtColor(char_image_left, cv2.COLOR_BGR2HSV)
+            mask_left = cv2.inRange(hsv_image_l, lower_hsv, upper_hsv)
+
+            hsv_image_m = cv2.cvtColor(char_image_middle, cv2.COLOR_BGR2HSV)
+            mask_middle = cv2.inRange(hsv_image_m, lower_hsv, upper_hsv)
+
+            hsv_image_r = cv2.cvtColor(char_image_right, cv2.COLOR_BGR2HSV)
+            mask_right = cv2.inRange(hsv_image_r, lower_hsv, upper_hsv)
+
+
             # Save left part
             filename_left = os.path.join(save_dir, f'{char_name_L}_{order_indexLMR-2}_{random_number_left}.png')
-            cv2.imwrite(filename_left, char_image_left)
+            cv2.imwrite(filename_left, mask_left)
             saved_images.append(filename_left)
 
             # Save middle part
             filename_middle = os.path.join(save_dir, f'{char_name_M}_{order_indexLMR-1}_{random_number_middle}.png')
-            cv2.imwrite(filename_middle, char_image_middle)
+            cv2.imwrite(filename_middle, mask_middle)
             saved_images.append(filename_middle)
 
             # Save right part
             filename_right = os.path.join(save_dir, f'{char_name_R}_{order_indexLMR}_{random_number_right}.png')
-            cv2.imwrite(filename_right, char_image_right)
+            cv2.imwrite(filename_right, mask_right)
             saved_images.append(filename_right)
 
             char_counter += 1  # Increment character counter after saving all parts
@@ -151,8 +173,12 @@ for i, cnt in enumerate(sorted_contours):
 
             char_image = cv2.resize(char_image, (target_width, target_height))
 
+            # Apply HSV filter:
+            hsv_image = cv2.cvtColor(char_image, cv2.COLOR_BGR2HSV)
+            mask = cv2.inRange(hsv_image, lower_hsv, upper_hsv)
+
             filename = os.path.join(save_dir, f'{char_name}_{char_counter}_{random_num}.png')
-            cv2.imwrite(filename, char_image)
+            cv2.imwrite(filename, mask)
             saved_images.append(filename)
 
             char_counter += 1  # Increment character counter after saving the character
