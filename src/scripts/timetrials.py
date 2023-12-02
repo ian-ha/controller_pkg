@@ -316,7 +316,7 @@ class robot_driving:
             line_position = self.locate_road(SCAN_ROW-200, tunnel_mask, from_center=False)
             self.steering_val = line_position
             line_position_inside = self.locate_road(SCAN_ROW-100, dark_tunnel_mask, from_center=False)
-            if line_position_inside != -1:
+            if line_position_inside != -1 and counter - self.count_at_tunnel > 10:
                 state_machine = TUNNEL_INSIDE
                 frames_since_line = 0
                 print("inside tunnel")
