@@ -95,7 +95,7 @@ class ImageDisplay:
 
                     plate_content = self.get_plate_content(self.plate_num, '/home/fizzer/ros_ws/src/2023_competition/enph353/enph353_gazebo/scripts/plates.csv')
                     if plate_content:
-                        filename = "{}.png".format(plate_content)
+                        filename = "{}.jpg".format(plate_content)
                         cv2.imwrite(filename, result)
                         print("Picture of {} taken.".format(filename))
                     else:
