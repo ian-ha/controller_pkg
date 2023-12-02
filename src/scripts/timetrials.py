@@ -61,7 +61,9 @@ MOUNTAIN2_UPPER_HSV = np.array([54, 115, 233])
 move = Twist()
 counter = 0
 state_machine = NORMAL_DRIVE
+
 ROBOT_SPEED = 0.4
+
 seen_purple_lines = 0
 wall_seen = False
 road_located_after_yoda = False
@@ -234,7 +236,9 @@ class robot_driving:
             #cv2.circle(cv_image, (line_position, SCAN_ROW), 5, (0,0,255), -1)
             self.steering_val = line_position
             self.get_steering_val(speed=ROBOT_SPEED+.02)
+
             if counter == 285:
+
                 state_machine = TRUCK_LOOP
                 move.linear.x = 0
                 move.angular.z = 1
@@ -251,9 +255,7 @@ class robot_driving:
             if line_position == -1:
                 line_position = 1
             self.get_steering_val()
-            if counter == 600:
-                state_machine = NORMAL_DRIVE
-                print("entering normal drive")
+            
         elif state_machine == GRASS_ROAD:
             upper_line = np.array([180, 230, 230])
             lower_line = np.array([130, 170, 180])

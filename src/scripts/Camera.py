@@ -6,13 +6,19 @@ from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 import cv2
 import numpy as np
+import random
 
 VERBOSE = False
+IMG_AREA_THRESHOLD = 21000
+TIME_THRESHOLD = 2.5
 
 class ImageDisplay:
     def __init__(self):
         self.bridge = CvBridge()
         self.subscriber = rospy.Subscriber("/R1/pi_camera/image_raw", Image, self.callback, queue_size=1)
+        self.last_image_time = rospy.Time()
+        self.plate_num = 0
+        self.image_captured = False
         if VERBOSE:
             print("Subscribed to /R1/pi_camera/image_raw")
 
@@ -66,9 +72,13 @@ class ImageDisplay:
                     max_non_blue_quad = approx
 
             # Apply perspective transformation to the largest non-blue quadrilateral
+
+            
+
             if max_non_blue_quad is not None:
                 area_non_blue_quad = cv2.contourArea(max_non_blue_quad)
-                if area_non_blue_quad > 15000:
+                current_time = rospy.Time.now()
+                if area_non_blue_quad > IMG_AREA_THRESHOLD and not self.image_captured and (current_time - self.last_image_time).to_sec() > TIME_THRESHOLD:
                     max_non_blue_quad = self.order_points(max_non_blue_quad[:, 0, :])
                     pts1 = np.float32(max_non_blue_quad)
                     pts2 = np.float32([[0, 0], [600, 0], [600, 400], [0, 400]])
@@ -76,9 +86,26 @@ class ImageDisplay:
                     result = cv2.warpPerspective(cv_image, matrix, (600, 400))
 
                     # Take a picture of 'result' and save it
-                    cv2.imwrite("non_blue_quadrilateral_image_{}.jpg".format(rospy.Time.now()), result)
-                    print("Picture of the non-blue quadrilateral taken.")
+
+                    self.plate_num+=1 # plate number
+
+                    # Plates Directory below:
+
+                    # '/home/fizzer/ros_ws/src/2023_competition/enph353/enph353_gazebo/scripts/plates.csv'
+
+                    plate_content = self.get_plate_content(self.plate_num, '/home/fizzer/ros_ws/src/2023_competition/enph353/enph353_gazebo/scripts/plates.csv')
+                    if plate_content:
+                        filename = "{}.jpg".format(plate_content)
+                        cv2.imwrite(filename, result)
+                        print("Picture of {} taken.".format(filename))
+                    else:
+                        print("No plate content found for plate number {}".format(self.plate_num))
+
                     cv2.imshow("Perspective Transformation", result)
+                    self.image_captured = True
+                    self.last_image_time = current_time
+                elif area_non_blue_quad <= IMG_AREA_THRESHOLD:
+                    self.image_captured = False
 
             # Draw the contour of the non-blue quadrilateral
             if max_non_blue_quad is not None:
@@ -97,6 +124,15 @@ class ImageDisplay:
         rect[1] = pts[np.argmin(diff)]
         rect[3] = pts[np.argmax(diff)]
         return rect
+    
+    def get_plate_content(self, plate_num, file_path):
+        with open(file_path, 'r') as file:
+            lines = file.readlines()
+            if 0 <= plate_num - 1 < len(lines):
+                content = lines[plate_num - 1].strip() # Adjust for zero-indexing
+                return content.replace(',', '').replace(' ', '')
+            else:
+                return None
 
 def main(args):
     rospy.init_node('image_display', anonymous=True)
