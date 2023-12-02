@@ -384,7 +384,7 @@ class robot_driving:
                 self.prev_steering_val = -1
                 print("entering mountain")
         
-        #self.publisher.publish(move)
+        self.publisher.publish(move)
         
 
         if line_position == -1:
