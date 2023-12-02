@@ -58,6 +58,9 @@ MOUNTAIN_UPPER_HSV = np.array([52, 101, 215])
 MOUNTAIN2_LOWER_HSV = np.array([8, 34, 181])
 MOUNTAIN2_UPPER_HSV = np.array([54, 115, 233])
 
+CROSSWALK_RED_LOWER_BGR = np.array([0, 0, 250])
+CROSSWALK_RED_UPPER_BGR = np.array([5, 5, 255])
+
 move = Twist()
 counter = 0
 state_machine = NORMAL_DRIVE
@@ -287,6 +290,9 @@ class robot_driving:
         elif state_machine == MOUNTAIN_BASE:
             if(self.steering_val == -1 and self.prev_steering_val != -1):
                 frames_since_line += 1
+                move.linear.x = 0
+                move.angular.z = 0.3
+                line_position = -1
                 if frames_since_line > 5:
                     
                     state_machine = TUNNEL_MOUTH
@@ -295,20 +301,20 @@ class robot_driving:
                     self.count_at_tunnel = counter
             else:
                 frames_since_line = 0
-            
-
-            upper_line = np.array([180, 230, 230])
-            lower_line = np.array([130, 170, 180])
-            line_mask = cv2.inRange(blur_image2, lower_line, upper_line)
-            line_position = self.locate_road(GRASS_ROW,line_mask)
-            self.steering_val = line_position
-            self.get_steering_val(speed=ROBOT_SPEED-0.2)
+                upper_line = np.array([180, 230, 230])
+                lower_line = np.array([130, 170, 180])
+                line_mask = cv2.inRange(blur_image2, lower_line, upper_line)
+                line_position = self.locate_road(GRASS_ROW,line_mask)
+                self.steering_val = line_position
+                self.get_steering_val(speed=ROBOT_SPEED-0.2)
         elif state_machine == TUNNEL_MOUTH:
             hsv_blur = cv2.GaussianBlur(cv_hsv, (3,3), 0)
             tunnel_mask = cv2.inRange(hsv_blur, TUNNEL_LOWER_HSV, TUNNEL_UPPER_HSV)
+            dark_tunnel_mask = cv2.inRange(hsv_blur, TUNNEL_INSIDE_LOWER_HSV, TUNNEL_INSIDE_UPPER_HSV)
             line_position = self.locate_road(SCAN_ROW-200, tunnel_mask, from_center=False)
             self.steering_val = line_position
-            if(counter - self.count_at_tunnel > 50):
+            line_position_inside = self.locate_road(SCAN_ROW-100, dark_tunnel_mask, from_center=False)
+            if line_position_inside != -1:
                 state_machine = TUNNEL_INSIDE
                 frames_since_line = 0
                 print("inside tunnel")
@@ -376,7 +382,7 @@ class robot_driving:
                 self.prev_steering_val = -1
                 print("entering mountain")
         
-        self.publisher.publish(move)
+        #self.publisher.publish(move)
         
 
         if line_position == -1:
