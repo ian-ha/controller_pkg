@@ -9,8 +9,9 @@ import numpy as np
 import random
 
 VERBOSE = False
-IMG_AREA_THRESHOLD = 21000
+IMG_AREA_THRESHOLD = 19000
 TIME_THRESHOLD = 2.5
+
 
 class ImageDisplay:
     def __init__(self):
@@ -19,6 +20,7 @@ class ImageDisplay:
         self.last_image_time = rospy.Time()
         self.plate_num = 0
         self.image_captured = False
+        self.img_filepath = r'/home/fizzer/competition_images/'
         if VERBOSE:
             print("Subscribed to /R1/pi_camera/image_raw")
 
@@ -96,7 +98,8 @@ class ImageDisplay:
                     plate_content = self.get_plate_content(self.plate_num, '/home/fizzer/ros_ws/src/2023_competition/enph353/enph353_gazebo/scripts/plates.csv')
                     if plate_content:
                         filename = "{}.jpg".format(plate_content)
-                        cv2.imwrite(filename, result)
+                        #save to competition_images filepath
+                        cv2.imwrite(self.img_filepath + filename, result)
                         print("Picture of {} taken.".format(filename))
                     else:
                         print("No plate content found for plate number {}".format(self.plate_num))
