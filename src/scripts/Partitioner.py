@@ -3,8 +3,12 @@ import numpy as np
 import os
 import random
 
+# Scale images
+target_width = 42
+target_height = 60
+
 # Define the path to the image within this environment
-image_path = '/home/fizzer/ros_ws/src/controller_pkg/src/scripts/CRIMEBIRRADIATE.jpg'
+image_path = '/home/fizzer/ros_ws/src/controller_pkg/src/scripts/VICTIMWBACTERIA.jpg'
 
 # Define the directory to save individual characters
 save_dir = '/home/fizzer/ros_ws/src/controller_pkg/src/scripts/IndividualCharacters/'
@@ -62,14 +66,14 @@ for i, cnt in enumerate(sorted_contours):
     if w < 16 or h < 16:
          continue
 
-    # Extract the character
+    # Extract the character and resize image
     char_image = image[y:y+h, x:x+w]
 
     # Check if there are enough characters left in the list
     if char_counter < len(characters):
 
         # If the width is at least 1.4 times the height and less than twice, split it into two
-        if 1.4 * h <= w < 2.0 * h:
+        if 1.3 * h <= w < 2.0 * h:
             char_name_Left = characters[char_counter]
             char_counter+=1
             order_indexLR = char_counter
@@ -78,6 +82,9 @@ for i, cnt in enumerate(sorted_contours):
             mid = w // 2
             char_image_left = char_image[:, :mid]
             char_image_right = char_image[:, mid:]
+
+            char_image_left = cv2.resize(char_image_left, (target_width, target_height))
+            char_image_right = cv2.resize(char_image_right, (target_width, target_height))
 
             # Generate random numbers for naming
             random_number_left = random.randint(10, 99)
@@ -110,6 +117,9 @@ for i, cnt in enumerate(sorted_contours):
             char_image_middle = char_image[:, part_width:2*part_width]
             char_image_right = char_image[:, 2*part_width:]
 
+            char_image_left = cv2.resize(char_image_left, (target_width, target_height))
+            char_image_middle = cv2.resize(char_image_middle, (target_width, target_height))
+            char_image_right = cv2.resize(char_image_right, (target_width, target_height))
 
             # Generate random numbers for each filename
             random_number_left = random.randint(10, 99)
@@ -138,6 +148,8 @@ for i, cnt in enumerate(sorted_contours):
             char_name = characters[char_counter]
 
             random_num = random.randint(10, 99)
+
+            char_image = cv2.resize(char_image, (target_width, target_height))
 
             filename = os.path.join(save_dir, f'{char_name}_{char_counter}_{random_num}.png')
             cv2.imwrite(filename, char_image)
