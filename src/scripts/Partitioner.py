@@ -25,7 +25,7 @@ ONEHOT_INDEX = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 image_path = '/home/fizzer/ros_ws/src/controller_pkg/src/plateImages/'
 
 
-MODEL_PATH = r'/home/fizzer/ros_ws/src/controller_pkg/src/models/5x5kernalmodel.keras'
+MODEL_PATH = r'/home/fizzer/ros_ws/src/controller_pkg/src/models/blurred5x5.keras'
 PARTITIONED_IMG_PATH = r'/home/fizzer/ros_ws/src/controller_pkg/src/IndividualCharacters/'
 
 class clueGuesser:
