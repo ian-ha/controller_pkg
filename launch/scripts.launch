@@ -1,0 +1,20 @@
+<launch>
+
+<node pkg="controller_pkg"
+         type="timetrials.py"
+         name="move_robot" 
+         output="screen">
+   </node>
+<node pkg="controller_pkg"
+         type="Camera.py"
+         name="capture_signs" 
+         output="screen">
+   </node>
+
+<node pkg="controller_pkg"
+         type="Partitioner.py"
+         name="make_guesses" 
+         output="screen">
+   </node>
+
+</launch>
