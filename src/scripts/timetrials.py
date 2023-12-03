@@ -278,41 +278,44 @@ class robot_driving:
                 print("wall seen")
                 wall_seen = True
                 move.linear.x = 1
-                move.angular.z = -0.3
+                move.angular.z = -0.2
                 line_position = 0
                 #cv2.circle(cv_image, (line_position, WALL_ROW), 5, (0,0,255), -1)
             else:
-                move.linear.x = 0.9
-                move.angular.z = 0.35
+                move.linear.x = 1.05
+                move.angular.z = 0.4
                 line_position = 0
         elif state_machine == MOUNTAIN_BASE:
-            if(self.steering_val == -1 and self.prev_steering_val != -1):
+            if(counter - self.count_at_tunnel < 30):
                 frames_since_line += 1
                 move.linear.x = 0.15
                 move.angular.z = 0.35
                 line_position = -1
-                if frames_since_line > 12:
+                # if frames_since_line > 12:
                     
-                    state_machine = TUNNEL_MOUTH
-                    frames_since_line = 0
-                    print("entering tunnel")
-                    self.count_at_tunnel = counter
+                #     state_machine = TUNNEL_MOUTH
+                #     frames_since_line = 0
+                #     print("entering tunnel")
+                #     self.count_at_tunnel = counter
             else:
-                frames_since_line = 0
-                upper_line = np.array([180, 230, 230])
-                lower_line = np.array([130, 170, 180])
-                line_mask = cv2.inRange(blur_image2, lower_line, upper_line)
-                line_position = self.locate_road(GRASS_ROW,line_mask)
-                self.steering_val = line_position
-                self.get_steering_val(speed=ROBOT_SPEED-0.25, steering_sensitivity=110)
+                line_position = -1
+                self.count_at_tunnel = counter
+                state_machine = TUNNEL_MOUTH
+                # frames_since_line = 0
+                # upper_line = np.array([180, 230, 230])
+                # lower_line = np.array([130, 170, 180])
+                # line_mask = cv2.inRange(blur_image2, lower_line, upper_line)
+                # line_position = self.locate_road(GRASS_ROW,line_mask)
+                # self.steering_val = line_position
+                # self.get_steering_val(speed=ROBOT_SPEED-0.25, steering_sensitivity=110)
         elif state_machine == TUNNEL_MOUTH:
             hsv_blur = cv2.GaussianBlur(cv_hsv, (3,3), 0)
             tunnel_mask = cv2.inRange(hsv_blur, TUNNEL_LOWER_HSV, TUNNEL_UPPER_HSV)
             dark_tunnel_mask = cv2.inRange(hsv_blur, TUNNEL_INSIDE_LOWER_HSV, TUNNEL_INSIDE_UPPER_HSV)
-            line_position = self.locate_road(SCAN_ROW-200, tunnel_mask, from_center=False)
+            line_position = self.locate_road(SCAN_ROW-180, tunnel_mask, from_center=False)
             self.steering_val = min([line_position+25, 1279])
             line_position_inside = self.locate_road(SCAN_ROW-100, dark_tunnel_mask, from_center=False)
-            if line_position_inside != -1 and counter - self.count_at_tunnel > 10:
+            if line_position_inside != -1 and counter - self.count_at_tunnel > 15:
                 state_machine = TUNNEL_INSIDE
                 frames_since_line = 0
                 print("inside tunnel")
@@ -322,13 +325,13 @@ class robot_driving:
         elif state_machine == TUNNEL_INSIDE:
             hsv_blur = cv2.GaussianBlur(cv_hsv, (3,3), 0)
             tunnel_mask = cv2.inRange(hsv_blur, TUNNEL_INSIDE_LOWER_HSV, TUNNEL_INSIDE_UPPER_HSV)
-            line_position = self.locate_road(SCAN_ROW-100, tunnel_mask, from_center=True)
+            line_position = self.locate_road(325, tunnel_mask, from_center=True)
             self.steering_val = line_position
             if line_position == -1:
                 state_machine = CLIMING_MOUNTAIN
                 self.tunnel_brightness = np.mean(hsv_blur[BOTTOM_ROW_OF_IMAGE-100:BOTTOM_ROW_OF_IMAGE,0:COLUMNS_IN_IMAGE])
                 print("climing the mountain")
-            self.get_steering_val(speed=ROBOT_SPEED, steering_sensitivity=125)
+            self.get_steering_val(speed=ROBOT_SPEED-0.25, steering_sensitivity=125)
             cv2.imshow("tunnel", tunnel_mask)
         elif state_machine == CLIMING_MOUNTAIN:
             hsv_blur = cv2.GaussianBlur(cv_hsv, (3,3), 0)
@@ -377,6 +380,7 @@ class robot_driving:
                 move.linear.x = 0
                 move.angular.z = 0
                 state_machine = MOUNTAIN_BASE
+                self.count_at_tunnel = counter
                 self.prev_steering_val = -1
                 print("entering mountain")
         if counter == 0:
