@@ -1,7 +1,16 @@
+#! /usr/bin/env python3
 import cv2
 import numpy as np
 import os
 import random
+import PIL.Image as Image
+import tensorflow as tf
+from tensorflow import keras
+import ros
+import rospy
+from std_msgs.msg import String
+import sys
+import time
 
 # Scale images
 target_width = 42
@@ -10,177 +19,163 @@ target_height = 60
 # HSV values
 lower_hsv = np.array([80, 114, 60])
 upper_hsv = np.array([170, 250, 230])
+ONEHOT_INDEX = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 # Define the path to the image within this environment
-image_path = '/home/fizzer/ros_ws/src/controller_pkg/src/scripts/PLACEDBASEMENT.jpg'
-
-# Define the directory to save individual characters
-save_dir = '/home/fizzer/ros_ws/src/controller_pkg/src/scripts/IndividualCharacters/'
+image_path = '/home/fizzer/ros_ws/src/controller_pkg/src/plateImages/'
 
 
-image = cv2.imread(image_path)
+MODEL_PATH = r'/home/fizzer/ros_ws/src/controller_pkg/src/models/5x5kernalmodel.keras'
+PARTITIONED_IMG_PATH = r'/home/fizzer/ros_ws/src/controller_pkg/src/IndividualCharacters/'
 
-# Convert to grayscale and apply binary thresholding
-gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-_, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-
-# Morphological operations to separate characters that are close together
-kernel = np.ones((2, 2), np.uint8)
-morphed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-
-# Find contours
-contours, _ = cv2.findContours(morphed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-# Get the width and height of the image
-height, width = image.shape[:2]
-
-boundary_x = width // 3
-
-# Function to calculate the row number based on y coordinate
-def calculate_row(y, height):
-    return 0 if y < height / 2 else 1
-
-# Sort the contours by row and x coordinate
-sorted_contours = sorted(contours, key=lambda cnt: (calculate_row(cv2.boundingRect(cnt)[1], height), cv2.boundingRect(cnt)[0]))
-
-if not os.path.exists(save_dir):
-    os.makedirs(save_dir)
-
-# List to store saved image file paths for review
-saved_images = []
-
-
-
-
-# Extract filename without extension and convert it to a list of characters
-filename_no_extension = os.path.splitext(os.path.basename(image_path))[0]
-characters = list(filename_no_extension)
-
-# Counter for characters
-char_counter = 0
-
-# Extract and save individual characters
-for i, cnt in enumerate(sorted_contours):
-    x, y, w, h = cv2.boundingRect(cnt)
-
-    if x < boundary_x and y < height // 2:
-        continue
-
-    # Too get rid of extraneous images
-    if w < 16 or h < 16:
-         continue
-
-    # Extract the character and resize image
-    char_image = image[y:y+h, x:x+w]
-
-    # Check if there are enough characters left in the list
-    if char_counter < len(characters):
-
-        # If the width is at least 1.4 times the height and less than twice, split it into two
-        if 1.3 * h <= w < 2.0 * h:
-            char_name_Left = characters[char_counter]
-            char_counter+=1
-            order_indexLR = char_counter
-            char_name_Right = characters[char_counter]
-
-            mid = w // 2
-            char_image_left = char_image[:, :mid]
-            char_image_right = char_image[:, mid:]
-
-            char_image_left = cv2.resize(char_image_left, (target_width, target_height))
-            char_image_right = cv2.resize(char_image_right, (target_width, target_height))
-
-            # Generate random numbers for naming
-            random_number_left = random.randint(10, 99)
-            random_number_right = random.randint(10, 99)
-
-            # Apply HSV filter:
-            hsv_image_L = cv2.cvtColor(char_image_left, cv2.COLOR_BGR2HSV)
-            mask_L = cv2.inRange(hsv_image_L, lower_hsv, upper_hsv)
-
-            hsv_image_R = cv2.cvtColor(char_image_right, cv2.COLOR_BGR2HSV)
-            mask_R = cv2.inRange(hsv_image_R, lower_hsv, upper_hsv)
-
-            # Save the left part of the character image
-            filename_left = os.path.join(save_dir, f'{char_name_Left}_{order_indexLR-1}_{random_number_left}.png')
-            cv2.imwrite(filename_left, mask_L)
-            saved_images.append(filename_left)
-
-            # Save right part
-            filename_right = os.path.join(save_dir, f'{char_name_Right}_{order_indexLR}_{random_number_right}.png')
-            cv2.imwrite(filename_right, mask_R)
-            saved_images.append(filename_right)
+class clueGuesser:
+    def __init__(self):
+        self.model = keras.models.load_model(MODEL_PATH, compile=False)
+        self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+        self.publisher = rospy.Publisher("/score_tracker",String, queue_size=2)
+        self.clue_count = 0
+        self.entries = {'SIZE': ["TWO", "314", "DOZEN", "RAYO10", "COUNTLESS", "LEGIONS",
+                    "TRIPLETS"],
+           'VICTIM': ["PARROTS", "ROBOTS", "BACTERIA", "JEDIS", "ALIENS",
+                      "CITIZENS", "PHYSICISTS", "FRODO", "DINOSAURS", "BUNNIES",
+                      "BED BUGS", "ANTS"],
+           'CRIME': ["STEAL", "TRESPASS", "LIE TO", "DESTROY", "PUNCH", "BITE",
+                     "TRANSMOGRIFY", "TELEPORT", "ACCELERATE", "IRRADIATE",
+                     "CURSE", "HEADBUT", "DEFRAUD", "DECELERATE", "TICKLE"],
+           'TIME': ["NOON", "MIDNIGHT", "DAWN", "DUSK", "JURASIC", "TWILIGHT",
+                    "D DAY", "Q DAY", "2023", "WINTER", "SUMMER", "SPRING",
+                    "AUTUMN"],
+           'PLACE': ["HOSPITAL", "MALL", "FOREST", "MOON", "CLASS", "BEACH",
+                     "JUNGLE", "BASEMENT", "THE HOOD", "SEWERS", "CAVE",
+                     "BENU", "MARS"],
+           'MOTIVE': ["GLUTTONY", "CURIOSITY", "IGNORANCE", "FEAR", "PRIDE",
+                      "LOVE", "REVENGE", "PASSION", "BOREDOM", "THRILL",
+                      "GREED", "FAME", "ACCIDENT", "HATE", "SELF DEFENSE"],
+           'WEAPON': ["STICK", "ROCKET", "ANTIMATTER", "NEUTRINOS", "SHURIKEN",
+                      "PENCIL", "PLASMA", "WATER", "FIRE", "POTATO GUN",
+                      "ROPE", "ELECTRON", "HIGH VOLTAGE", "POLONIUM"],
+           'BANDIT': ["EINSTEIN", "PIKACHU", "SHREK", "LUIGI", "BARBIE",
+                      "BATMAN", "CAESAR", "SAURON", "THANOS", "GOKU",
+                      "CAO CAO", "THE DEVIL", "GODZILA", "TEMUJIN",
+                      "HANNIBAL"]
+           }
 
 
-            char_counter += 1  # Increment character counter after saving both parts
 
-        # If the width is at least twice the height, split it into three
-        elif w >= 2.0 * h:
-            char_name_L = characters[char_counter]
-            char_counter+=1
-            char_name_M = characters[char_counter]
-            char_counter+=1
-            order_indexLMR = char_counter # To get characters in order
-            char_name_R = characters[char_counter]
-
-            part_width = w // 3
-            char_image_left = char_image[:, :part_width]
-            char_image_middle = char_image[:, part_width:2*part_width]
-            char_image_right = char_image[:, 2*part_width:]
-
-            char_image_left = cv2.resize(char_image_left, (target_width, target_height))
-            char_image_middle = cv2.resize(char_image_middle, (target_width, target_height))
-            char_image_right = cv2.resize(char_image_right, (target_width, target_height))
-
-            # Generate random numbers for each filename
-            random_number_left = random.randint(10, 99)
-            random_number_middle = random.randint(10, 99)
-            random_number_right = random.randint(10, 99)
-
-            # Apply HSV filter:
-            hsv_image_l = cv2.cvtColor(char_image_left, cv2.COLOR_BGR2HSV)
-            mask_left = cv2.inRange(hsv_image_l, lower_hsv, upper_hsv)
-
-            hsv_image_m = cv2.cvtColor(char_image_middle, cv2.COLOR_BGR2HSV)
-            mask_middle = cv2.inRange(hsv_image_m, lower_hsv, upper_hsv)
-
-            hsv_image_r = cv2.cvtColor(char_image_right, cv2.COLOR_BGR2HSV)
-            mask_right = cv2.inRange(hsv_image_r, lower_hsv, upper_hsv)
-
-
-            # Save left part
-            filename_left = os.path.join(save_dir, f'{char_name_L}_{order_indexLMR-2}_{random_number_left}.png')
-            cv2.imwrite(filename_left, mask_left)
-            saved_images.append(filename_left)
-
-            # Save middle part
-            filename_middle = os.path.join(save_dir, f'{char_name_M}_{order_indexLMR-1}_{random_number_middle}.png')
-            cv2.imwrite(filename_middle, mask_middle)
-            saved_images.append(filename_middle)
-
-            # Save right part
-            filename_right = os.path.join(save_dir, f'{char_name_R}_{order_indexLMR}_{random_number_right}.png')
-            cv2.imwrite(filename_right, mask_right)
-            saved_images.append(filename_right)
-
-            char_counter += 1  # Increment character counter after saving all parts
-
-        else:
-            # Save the character image
-            char_name = characters[char_counter]
-
-            random_num = random.randint(10, 99)
-
+    def get_char_for_net(self,contour, num_output_chars, width):
+        preds = ""
+        split = width // num_output_chars
+        for i in range(num_output_chars):
+            char_image = contour[:, split*i:split*(i+1)]
+            if char_image is None:
+                print("char_image is None")
+                continue
             char_image = cv2.resize(char_image, (target_width, target_height))
-
-            # Apply HSV filter:
+            # Generate random numbers for naming
             hsv_image = cv2.cvtColor(char_image, cv2.COLOR_BGR2HSV)
-            mask = cv2.inRange(hsv_image, lower_hsv, upper_hsv)
+            binary_mask = cv2.inRange(hsv_image, lower_hsv, upper_hsv)
+            im_pil = Image.fromarray(binary_mask)
+            im_pil = np.expand_dims(im_pil, axis=0)
+            onehot = self.model.predict(im_pil)
+            onehot = np.argmax(onehot)
+            preds += ONEHOT_INDEX[onehot]
+        return preds
+    
+    def clue_publisher(self):
+        while self.clue_count < 8:
+            for filename in os.listdir(image_path):
+                time.sleep(1)
+                if not filename.startswith('.'):
+                    self.clue_count += 1
+                    image = cv2.imread(os.path.join(image_path, filename))
+                    os.remove(os.path.join(image_path, filename))
+                    sign_prediction = ""
 
-            filename = os.path.join(save_dir, f'{char_name}_{char_counter}_{random_num}.png')
-            cv2.imwrite(filename, mask)
-            saved_images.append(filename)
 
-            char_counter += 1  # Increment character counter after saving the character
+                    if image is None:
+                        print("char_image is None")
+                        continue
+                 
 
+                    # Convert to grayscale and apply binary thresholding
+                    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+                    # Morphological operations to separate characters that are close together
+                    kernel = np.ones((2, 2), np.uint8)
+                    morphed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+
+                    # Find contours
+                    contours, _ = cv2.findContours(morphed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+                    # Get the width and height of the image
+                    height, width = image.shape[:2]
+
+                    boundary_x = width // 3
+
+                    # Function to calculate the row number based on y coordinate
+                    def calculate_row(y, height):
+                        return 0 if y < height / 2 else 1
+
+                    # Sort the contours by row and x coordinate
+                    sorted_contours = sorted(contours, key=lambda cnt: (calculate_row(cv2.boundingRect(cnt)[1], height), cv2.boundingRect(cnt)[0]))
+
+
+                    # Extract and save individual characters
+                    for i, cnt in enumerate(sorted_contours):
+                        x, y, w, h = cv2.boundingRect(cnt)
+
+                        if x < boundary_x and y < height // 2:
+                            continue
+
+                        # Too get rid of extraneous images
+                        if w < 16 or h < 16:
+                            continue
+
+                        # Extract the character and resize image
+                        char_image = image[y:y+h, x:x+w]
+
+
+                        # If the width is at least 1.4 times the height and less than twice, split it into two
+                        if 1.3 * h <= w < 2.0 * h:
+                            sign_prediction += self.get_char_for_net(char_image,2,w)
+
+
+                        # If the width is at least twice the height, split it into three
+                        elif w >= 2.0 * h:
+                            sign_prediction += self.get_char_for_net(char_image,3,w)
+
+
+                        else:
+                            # Save the character image
+                            sign_prediction += self.get_char_for_net(char_image, 1,w)
+
+                    print("Clue {}: {}".format(self.clue_count, sign_prediction))
+                    #check if the beginning of the sign prediction is a key in entries
+                    
+                    guess = ""
+                    for key in self.entries:
+                        if key in sign_prediction:
+                            to_remove = len(key)
+                            sign_prediction = sign_prediction[to_remove:]
+                            guess = sign_prediction[:1] + ' ' + sign_prediction[1:]
+                            self.publisher.publish('TeamName,password,'+str(self.clue_count)+','+guess)
+                            break
+                    if guess == "":
+                        self.publisher.publish('TeamName,password,'+str(self.clue_count)+','+sign_prediction)
+                    if self.clue_count == 8:
+                        self.publisher.publish('TeamName,password,-1,woooo')
+
+def main(args):
+    '''Initializes and cleanup ros node'''
+    rospy.init_node('clue_guessing', anonymous=True)
+    ic = clueGuesser()
+    try:
+        ic.clue_publisher()
+    except KeyboardInterrupt:
+        print ("Shutting down ROS Image feature detector module")
+    cv2.destroyAllWindows()
+
+if __name__ == '__main__':
+    main(sys.argv)
 

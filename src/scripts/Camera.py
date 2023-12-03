@@ -10,8 +10,8 @@ import random
 
 VERBOSE = False
 IMG_AREA_THRESHOLD = 19000
-TIME_THRESHOLD = 2.5
-
+TIME_THRESHOLD = 3
+DATA_COLLECTION = False
 
 class ImageDisplay:
     def __init__(self):
@@ -21,6 +21,7 @@ class ImageDisplay:
         self.plate_num = 0
         self.image_captured = False
         self.img_filepath = r'/home/fizzer/competition_images/'
+        self.img_temp_path = r'/home/fizzer/ros_ws/src/controller_pkg/src/plateImages/'
         if VERBOSE:
             print("Subscribed to /R1/pi_camera/image_raw")
 
@@ -99,7 +100,9 @@ class ImageDisplay:
                     if plate_content:
                         filename = "{}.jpg".format(plate_content)
                         #save to competition_images filepath
-                        cv2.imwrite(self.img_filepath + filename, result)
+                        if DATA_COLLECTION:
+                            cv2.imwrite(self.img_filepath + filename, result)
+                        cv2.imwrite(self.img_temp_path + filename, result)
                         print("Picture of {} taken.".format(filename))
                     else:
                         print("No plate content found for plate number {}".format(self.plate_num))

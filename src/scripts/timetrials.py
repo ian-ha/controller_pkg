@@ -85,18 +85,14 @@ class robot_driving:
         self.tunnel_seen = False
         self.count_at_tunnel = 0
         self.tunnel_brightness = 0
-
+        rospy.sleep(10)
         # subscribed Topic
+        self.publisher2 = rospy.Publisher("/score_tracker",String, queue_size=1)
+        self.publisher = rospy.Publisher("/R1/cmd_vel",Twist, queue_size=1)
+        '''initialize ros publisher'''
         self.subscriber = rospy.Subscriber("/R1/pi_camera/image_raw",
             Image, self.callback,  queue_size = 1)
         
-        self.publisher = rospy.Publisher("/R1/cmd_vel",Twist, queue_size=1)
-        '''initialize ros publisher'''
-
-        self.publisher2 = rospy.Publisher("/score_tracker",String, queue_size=1)
-        rospy.sleep(1)
-
-        self.publisher2.publish('TeamName,password,0,NA')
         global move
         # move.linear.x = 0.5
         #self.publisher.publish(move)
@@ -240,7 +236,7 @@ class robot_driving:
             self.steering_val = line_position
             self.get_steering_val(speed=ROBOT_SPEED+.1, steering_sensitivity=80)
 
-            if counter == 245:
+            if counter == 240:
 
                 state_machine = TRUCK_LOOP
                 move.linear.x = 0
@@ -383,6 +379,8 @@ class robot_driving:
                 state_machine = MOUNTAIN_BASE
                 self.prev_steering_val = -1
                 print("entering mountain")
+        if counter == 0:
+            self.publisher2.publish('TeamName,password,0,NA')
         
         self.publisher.publish(move)
         
