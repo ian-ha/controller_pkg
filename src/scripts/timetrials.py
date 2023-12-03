@@ -289,7 +289,7 @@ class robot_driving:
             if(self.steering_val == -1 and self.prev_steering_val != -1):
                 frames_since_line += 1
                 move.linear.x = 0.15
-                move.angular.z = 0.3
+                move.angular.z = 0.35
                 line_position = -1
                 if frames_since_line > 12:
                     
@@ -304,7 +304,7 @@ class robot_driving:
                 line_mask = cv2.inRange(blur_image2, lower_line, upper_line)
                 line_position = self.locate_road(GRASS_ROW,line_mask)
                 self.steering_val = line_position
-                self.get_steering_val(speed=ROBOT_SPEED-0.2)
+                self.get_steering_val(speed=ROBOT_SPEED-0.25, steering_sensitivity=110)
         elif state_machine == TUNNEL_MOUTH:
             hsv_blur = cv2.GaussianBlur(cv_hsv, (3,3), 0)
             tunnel_mask = cv2.inRange(hsv_blur, TUNNEL_LOWER_HSV, TUNNEL_UPPER_HSV)
@@ -316,7 +316,7 @@ class robot_driving:
                 state_machine = TUNNEL_INSIDE
                 frames_since_line = 0
                 print("inside tunnel")
-            self.get_steering_val(speed=ROBOT_SPEED-0.25, steering_sensitivity=125)
+            self.get_steering_val(speed=ROBOT_SPEED-0.3, steering_sensitivity=120)
             
             cv2.imshow("tunnel", tunnel_mask)
         elif state_machine == TUNNEL_INSIDE:
@@ -381,6 +381,7 @@ class robot_driving:
                 print("entering mountain")
         if counter == 0:
             self.publisher2.publish('TeamName,password,0,NA')
+            rospy.sleep(0.1)
         
         self.publisher.publish(move)
         

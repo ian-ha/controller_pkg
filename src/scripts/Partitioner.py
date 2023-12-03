@@ -59,6 +59,8 @@ class clueGuesser:
                       "CAO CAO", "THE DEVIL", "GODZILA", "TEMUJIN",
                       "HANNIBAL"]
            }
+        for filename in os.listdir(image_path):
+            os.remove(os.path.join(image_path, filename))
 
 
 
@@ -86,9 +88,7 @@ class clueGuesser:
             for filename in os.listdir(image_path):
                 time.sleep(1)
                 if not filename.startswith('.'):
-                    self.clue_count += 1
                     image = cv2.imread(os.path.join(image_path, filename))
-                    os.remove(os.path.join(image_path, filename))
                     sign_prediction = ""
 
 
@@ -152,7 +152,7 @@ class clueGuesser:
 
                     print("Clue {}: {}".format(self.clue_count, sign_prediction))
                     #check if the beginning of the sign prediction is a key in entries
-                    
+                    self.clue_count += 1
                     guess = ""
                     for key in self.entries:
                         if key in sign_prediction:
@@ -165,6 +165,7 @@ class clueGuesser:
                         self.publisher.publish('TeamName,password,'+str(self.clue_count)+','+sign_prediction)
                     if self.clue_count == 8:
                         self.publisher.publish('TeamName,password,-1,woooo')
+                    os.remove(os.path.join(image_path, filename))
 
 def main(args):
     '''Initializes and cleanup ros node'''
@@ -172,6 +173,7 @@ def main(args):
     ic = clueGuesser()
     try:
         ic.clue_publisher()
+        rospy.sleep(1)
     except KeyboardInterrupt:
         print ("Shutting down ROS Image feature detector module")
     cv2.destroyAllWindows()
