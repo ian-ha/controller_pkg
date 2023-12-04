@@ -88,11 +88,13 @@ class robot_driving:
         rospy.sleep(10)
         # subscribed Topic
         self.publisher2 = rospy.Publisher("/score_tracker",String, queue_size=1)
-        self.publisher = rospy.Publisher("/R1/cmd_vel",Twist, queue_size=1)
-        '''initialize ros publisher'''
+        
         self.subscriber = rospy.Subscriber("/R1/pi_camera/image_raw",
             Image, self.callback,  queue_size = 1)
-        
+        rospy.sleep(1)
+        self.publisher2.publish('TeamName,password,0,NA')
+        self.publisher = rospy.Publisher("/R1/cmd_vel",Twist, queue_size=1)
+        '''initialize ros publisher'''
         global move
         # move.linear.x = 0.5
         #self.publisher.publish(move)
@@ -288,7 +290,7 @@ class robot_driving:
         elif state_machine == MOUNTAIN_BASE:
             if(counter - self.count_at_tunnel < 30):
                 frames_since_line += 1
-                move.linear.x = 0.15
+                move.linear.x = 0.1
                 move.angular.z = 0.35
                 line_position = -1
                 # if frames_since_line > 12:
@@ -383,11 +385,11 @@ class robot_driving:
                 self.count_at_tunnel = counter
                 self.prev_steering_val = -1
                 print("entering mountain")
-        if counter == 0:
-            self.publisher2.publish('TeamName,password,0,NA')
-            rospy.sleep(0.1)
-        
-        self.publisher.publish(move)
+
+        try:          
+            self.publisher.publish(move)
+        except:
+            print("failed to publish")
         
 
         if line_position == -1:
@@ -410,7 +412,7 @@ class robot_driving:
         cv2.imshow("Image window", cv_image)
         cv2.waitKey(3)
 
-        if counter >= 2000:
+        if counter >= 3500:
             rospy.sleep(3)
             move.linear.x = 0
             move.angular.z = 0
