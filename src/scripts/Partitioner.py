@@ -30,6 +30,8 @@ PARTITIONED_IMG_PATH = r'/home/fizzer/ros_ws/src/controller_pkg/src/IndividualCh
 
 class clueGuesser:
     def __init__(self):
+        for filename in os.listdir(image_path):
+            os.remove(os.path.join(image_path, filename))
         self.model = keras.models.load_model(MODEL_PATH, compile=False)
         self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
         self.publisher = rospy.Publisher("/score_tracker",String, queue_size=2)
@@ -59,8 +61,7 @@ class clueGuesser:
                       "CAO CAO", "THE DEVIL", "GODZILA", "TEMUJIN",
                       "HANNIBAL"]
            }
-        for filename in os.listdir(image_path):
-            os.remove(os.path.join(image_path, filename))
+        
 
 
 
