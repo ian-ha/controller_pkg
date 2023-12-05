@@ -35,6 +35,9 @@ STEERING_CENTER = 640
 COLUMNS_IN_IMAGE = 1279
 GRASS_ROW = BOTTOM_ROW_OF_IMAGE - 275
 GRASS_2 = BOTTOM_ROW_OF_IMAGE - 200
+TRUCK_MASK_TOP = 320
+TRUCK_MASK_LEFT = 300
+TRUCK_MASK_RIGHT = 600
 VERBOSE=False
 NORMAL_DRIVE = 0
 PEDESTRIAN = 1
@@ -47,6 +50,7 @@ TUNNEL_INSIDE = 7
 CLIMBING_MOUNTAIN = 8
 CLIMBING_MOUNTAIN2 = 9
 CLIMBING_MOUNTAIN3 = 10
+INTERSECTION = 11
 
 TUNNEL_UPPER_HSV = np.array([13, 153, 222])
 TUNNEL_LOWER_HSV = np.array([2, 122, 153])
@@ -64,6 +68,9 @@ CROSSWALK_RED_UPPER_BGR = np.array([5, 5, 255])
 
 PED_PANTS_UPPER_HSV = np.array([160,180,93])
 PED_PANTS_LOWER_HSV = np.array([91,49,23])
+
+TRUCK_MASK_UPPER_HSV = np.array([51, 16, 246])
+TRUCK_MASK_LOWER_HSV = np.array([0, 0, 46])
 
 move = Twist()
 counter = 0
@@ -92,8 +99,11 @@ class robot_driving:
         self.mountain2_brightness = 0
         self.signcount = 0
         self.pedestrian_initial_position = np.zeros((300, 1279))
+        self.last_truck_position = np.zeros((BOTTOM_ROW_OF_IMAGE-200-TRUCK_MASK_TOP, 1279))
         self.ped_seen = False
-        self.stopped_for_ped = False   
+        self.stopped_for_ped = False
+        self.stopped_for_truck = False
+        self.truck_seen = False   
         rospy.sleep(10)
         # subscribed Topic
         self.publisher2 = rospy.Publisher("/score_tracker",String, queue_size=1)
@@ -133,6 +143,24 @@ class robot_driving:
                     if purple_pixels > 1 and delta_t > 3:
                         last_purple = cur_time
                         return True
+                    
+                    #in to cm
+                    #ft to cm
+                    #kg to lbs
+                    #L to US gal
+                    # c to f
+                    #W to HP
+                    #Explaiin diff between slugs lbm lbf?
+                    #vs force being derived in metric
+                    #slug is the derived unit in imperial system
+                    #1lb force = 1lb mass at 1g
+                    #apply 1lb force to 1lb mass, it will accelerate at 1ft/s^2
+                    #1lbf = 1 slug * 1ft/s^2
+
+                    #BONUS
+                    #wrench size?
+                    #HP to to ft lb/s?
+
         return False
     def locate_wall(self, row_num, image):
         upper_wall = np.array([50, 70, 70])
@@ -259,15 +287,15 @@ class robot_driving:
             line_position = self.locate_road(SCAN_ROW,black_mask)
             #cv2.circle(cv_image, (line_position, SCAN_ROW), 5, (0,0,255), -1)
             self.steering_val = line_position
-            self.get_steering_val(speed=ROBOT_SPEED+.1, steering_sensitivity=90)
+            self.get_steering_val(speed=ROBOT_SPEED+.12, steering_sensitivity=70)
             #if red line is detected, stop and wait for pedestrian to cross
             
             if self.signcount == 3:
 
-                state_machine = TRUCK_LOOP
+                state_machine = INTERSECTION
                 move.linear.x = 0
-                move.angular.z = 1
-                print("entering truck loop")
+                move.angular.z = 0
+                print("entering intersection")
 
         elif state_machine == PEDESTRIAN:
             hsv_blur = cv2.GaussianBlur(cv_hsv, (3,3), 0)
@@ -276,10 +304,10 @@ class robot_driving:
             move.linear.x = 0
             move.angular.z = 0
             self.publisher.publish(move)
-            if not self.stopped_for_ped:
+            if not self.stopped_for_truck:
                 self.publisher.publish(move)
-                rospy.sleep(0.8)
-                self.stopped_for_ped = True
+                rospy.sleep(0.9)
+                self.stopped_for_truck = True
                 return
             if not self.ped_seen:
                 hsv_blur = cv2.GaussianBlur(cv_hsv, (3,3), 0) 
@@ -294,13 +322,45 @@ class robot_driving:
             print(np.sum(abs(difference)))
             cv2.imshow("ped", ped_mask)
             cv2.waitKey(3)
-            if np.sum(abs(difference)) > 900:
+            if np.sum(abs(difference)) > 725:
                 state_machine = NORMAL_DRIVE
                 print("exiting pedestrian")
-            return 
+            return
+        
+        elif state_machine == INTERSECTION:
+            if not self.stopped_for_truck:
+                self.publisher.publish(move)
+                rospy.sleep(0.8)
+                self.stopped_for_truck = True
+                return
+            hsv_blur = cv2.GaussianBlur(cv_hsv, (3,3), 0)
+            truck_mask = cv2.inRange(hsv_blur, TRUCK_MASK_LOWER_HSV, TRUCK_MASK_UPPER_HSV)
+            truck_mask = truck_mask[TRUCK_MASK_TOP:BOTTOM_ROW_OF_IMAGE-200,TRUCK_MASK_LEFT:TRUCK_MASK_RIGHT]/255
+            move.linear.x = 0
+            move.angular.z = 0
+            self.publisher.publish(move)
+            
+            if not self.truck_seen:
+                self.last_truck_position= truck_mask 
+                self.truck_seen = True
+                return
+            line_position = self.locate_road(SCAN_ROW,black_mask)
+                #wait for the pedestrian to move by checking if the white area has moved significantly
+            difference = cv2.absdiff(truck_mask, self.last_truck_position)
+            print(np.sum(abs(difference)))
+            cv2.imshow("truck", truck_mask)
+            cv2.waitKey(3)
+            if np.sum(abs(difference)) < 125:
+                state_machine = TRUCK_LOOP
+                print("exiting intersection")
+                return
+            rospy.sleep(0.3)
+            self.last_truck_position = truck_mask
+            return
 
         elif state_machine == TRUCK_LOOP:
             line_position = min([self.__scan_row_for_road(SCAN_ROW,black_mask,True) + 350,1279])
+            
         
             #cv2.circle(cv_image, (line_position, SCAN_ROW), 5, (0,0,255), -1)
             self.steering_val = line_position
@@ -319,7 +379,10 @@ class robot_driving:
             line_position = (line_position + line2 )/2
             #cv2.circle(cv_image, (line_position, GRASS_ROW), 5, (0,0,255), -1)
             self.steering_val = line_position
-            self.get_steering_val(speed=ROBOT_SPEED-0.12, steering_sensitivity=90)
+            if(self.signcount == 5):
+                self.get_steering_val(speed=ROBOT_SPEED, steering_sensitivity=110)
+            else:  
+                self.get_steering_val(speed=ROBOT_SPEED-0.13, steering_sensitivity=85)
 
         elif state_machine == OFFROAD:
             if not wall_seen:
@@ -331,7 +394,7 @@ class robot_driving:
                 print("wall seen")
                 wall_seen = True
                 move.linear.x = 1
-                move.angular.z = -0.2
+                move.angular.z = -0.25
                 line_position = 0
                 #cv2.circle(cv_image, (line_position, WALL_ROW), 5, (0,0,255), -1)
             else:
