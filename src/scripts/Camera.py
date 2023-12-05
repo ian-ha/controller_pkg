@@ -7,6 +7,7 @@ from sensor_msgs.msg import Image
 import cv2
 import numpy as np
 import random
+from std_msgs.msg import String
 
 VERBOSE = False
 IMG_AREA_THRESHOLD = 19000
@@ -17,6 +18,7 @@ class ImageDisplay:
     def __init__(self):
         self.bridge = CvBridge()
         self.subscriber = rospy.Subscriber("/R1/pi_camera/image_raw", Image, self.callback, queue_size=1)
+        self.sign_pub = rospy.Publisher('sign_detected', String, queue_size=2)
         self.last_image_time = rospy.Time()
         self.plate_num = 0
         self.image_captured = False
@@ -110,6 +112,7 @@ class ImageDisplay:
                     cv2.imshow("Perspective Transformation", result)
                     self.image_captured = True
                     self.last_image_time = current_time
+                    self.sign_pub.publish("Sign Detected")
                 elif area_non_blue_quad <= IMG_AREA_THRESHOLD:
                     self.image_captured = False
 
@@ -119,6 +122,7 @@ class ImageDisplay:
 
         # Display the edge-detected image
         cv2.imshow("Masked Image", filtered_image)
+        
         cv2.waitKey(3)
 
     def order_points(self, pts):

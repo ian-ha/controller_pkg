@@ -35,6 +35,7 @@ class clueGuesser:
         self.model = keras.models.load_model(MODEL_PATH, compile=False)
         self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
         self.publisher = rospy.Publisher("/score_tracker",String, queue_size=2)
+        self.clue_subscriber = rospy.Subscriber("sign_detected", String, self.callback, queue_size=1)
         self.clue_count = 0
         self.entries = {'SIZE': ["TWO", "314", "DOZEN", "RAYO10", "COUNTLESS", "LEGIONS",
                     "TRIPLETS"],
@@ -84,8 +85,8 @@ class clueGuesser:
             preds += ONEHOT_INDEX[onehot]
         return preds
     
-    def clue_publisher(self):
-        while self.clue_count < 8:
+    def callback(self, ros_data):
+            rospy.sleep(1)
             for filename in os.listdir(image_path):
                 time.sleep(1)
                 if not filename.startswith('.'):
@@ -173,8 +174,7 @@ def main(args):
     rospy.init_node('clue_guessing', anonymous=True)
     ic = clueGuesser()
     try:
-        ic.clue_publisher()
-        rospy.sleep(1)
+        rospy.spin()
     except KeyboardInterrupt:
         print ("Shutting down ROS Image feature detector module")
     cv2.destroyAllWindows()

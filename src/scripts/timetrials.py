@@ -44,8 +44,9 @@ MOUNTAIN_BASE = 4
 GRASS_ROAD = 5 
 TUNNEL_MOUTH = 6
 TUNNEL_INSIDE = 7
-CLIMING_MOUNTAIN = 8
-CLIMING_MOUNTAIN2 = 9
+CLIMBING_MOUNTAIN = 8
+CLIMBING_MOUNTAIN2 = 9
+CLIMBING_MOUNTAIN3 = 10
 
 TUNNEL_UPPER_HSV = np.array([13, 153, 222])
 TUNNEL_LOWER_HSV = np.array([2, 122, 153])
@@ -55,8 +56,8 @@ TUNNEL_INSIDE_LOWER_HSV = np.array([1, 27, 54])
 
 MOUNTAIN_LOWER_HSV = np.array([16, 40, 156])
 MOUNTAIN_UPPER_HSV = np.array([52, 101, 215])
-MOUNTAIN2_LOWER_HSV = np.array([8, 34, 181])
-MOUNTAIN2_UPPER_HSV = np.array([54, 115, 233])
+MOUNTAIN2_LOWER_HSV = np.array([8, 39, 178])
+MOUNTAIN2_UPPER_HSV = np.array([54, 100, 233])
 
 CROSSWALK_RED_LOWER_BGR = np.array([0, 0, 250])
 CROSSWALK_RED_UPPER_BGR = np.array([5, 5, 255])
@@ -85,10 +86,12 @@ class robot_driving:
         self.tunnel_seen = False
         self.count_at_tunnel = 0
         self.tunnel_brightness = 0
+        self.mountain2_brightness = 0
+        self.signcount = 0
         rospy.sleep(10)
         # subscribed Topic
         self.publisher2 = rospy.Publisher("/score_tracker",String, queue_size=1)
-        
+        self.signsub = rospy.Subscriber("sign_detected", String, self.signcounter, queue_size=1)
         self.subscriber = rospy.Subscriber("/R1/pi_camera/image_raw",
             Image, self.callback,  queue_size = 1)
         rospy.sleep(1)
@@ -103,7 +106,12 @@ class robot_driving:
         if VERBOSE :
             print ("/rrbot/camera/image_raw")
 
-        
+    
+    def signcounter(self, data):
+        self.signcount +=1
+        print("signcount: ", self.signcount) 
+
+
     def check_for_purple(self, image):
         cur_time = time.time()
         global last_purple
@@ -236,9 +244,9 @@ class robot_driving:
             line_position = self.locate_road(SCAN_ROW,black_mask)
             #cv2.circle(cv_image, (line_position, SCAN_ROW), 5, (0,0,255), -1)
             self.steering_val = line_position
-            self.get_steering_val(speed=ROBOT_SPEED+.1, steering_sensitivity=80)
+            self.get_steering_val(speed=ROBOT_SPEED+.1, steering_sensitivity=60)
 
-            if counter == 240:
+            if self.signcount == 3:
 
                 state_machine = TRUCK_LOOP
                 move.linear.x = 0
@@ -290,7 +298,7 @@ class robot_driving:
         elif state_machine == MOUNTAIN_BASE:
             if(counter - self.count_at_tunnel < 30):
                 frames_since_line += 1
-                move.linear.x = 0.1
+                move.linear.x = 0.12
                 move.angular.z = 0.35
                 line_position = -1
                 # if frames_since_line > 12:
@@ -317,7 +325,7 @@ class robot_driving:
             line_position = self.locate_road(SCAN_ROW-180, tunnel_mask, from_center=False)
             self.steering_val = min([line_position+25, 1279])
             line_position_inside = self.locate_road(SCAN_ROW-100, dark_tunnel_mask, from_center=False)
-            if line_position_inside != -1 and counter - self.count_at_tunnel > 15:
+            if line_position_inside != -1 and counter - self.count_at_tunnel > 13:
                 state_machine = TUNNEL_INSIDE
                 frames_since_line = 0
                 print("inside tunnel")
@@ -330,12 +338,12 @@ class robot_driving:
             line_position = self.locate_road(325, tunnel_mask, from_center=True)
             self.steering_val = line_position
             if line_position == -1:
-                state_machine = CLIMING_MOUNTAIN
+                state_machine = CLIMBING_MOUNTAIN
                 self.tunnel_brightness = np.mean(hsv_blur[BOTTOM_ROW_OF_IMAGE-100:BOTTOM_ROW_OF_IMAGE,0:COLUMNS_IN_IMAGE])
                 print("climing the mountain")
             self.get_steering_val(speed=ROBOT_SPEED-0.25, steering_sensitivity=125)
             cv2.imshow("tunnel", tunnel_mask)
-        elif state_machine == CLIMING_MOUNTAIN:
+        elif state_machine == CLIMBING_MOUNTAIN:
             hsv_blur = cv2.GaussianBlur(cv_hsv, (3,3), 0)
             mountain_mask = cv2.inRange(hsv_blur, MOUNTAIN_LOWER_HSV, MOUNTAIN_UPPER_HSV)
             line_position = self.locate_road(SCAN_ROW, mountain_mask)
@@ -344,10 +352,12 @@ class robot_driving:
             self.steering_val = line_position
             self.get_steering_val(speed=ROBOT_SPEED)
             #change back to grass road when brightness of bottom quarter of image increases
-            if np.mean(cv_hsv[BOTTOM_ROW_OF_IMAGE-100:BOTTOM_ROW_OF_IMAGE,0:COLUMNS_IN_IMAGE]) - self.tunnel_brightness > 10:
-                state_machine = CLIMING_MOUNTAIN2
+            brightness = np.mean(cv_hsv[BOTTOM_ROW_OF_IMAGE-100:BOTTOM_ROW_OF_IMAGE,0:COLUMNS_IN_IMAGE])
+            if brightness - self.tunnel_brightness > 15:
+                self.mountain2_brightness = brightness    
+                state_machine = CLIMBING_MOUNTAIN2
                 print("entering mountain2")
-        elif state_machine == CLIMING_MOUNTAIN2:
+        elif state_machine == CLIMBING_MOUNTAIN2:
             hsv_blur = cv2.GaussianBlur(cv_hsv, (3,3), 0)
             mountain_mask = cv2.inRange(hsv_blur, MOUNTAIN2_LOWER_HSV, MOUNTAIN2_UPPER_HSV)
             line_position = self.locate_road(SCAN_ROW, mountain_mask)
@@ -357,7 +367,10 @@ class robot_driving:
                 self.steering_val = STEERING_CENTER
             else:
                 self.steering_val = line_position
-            self.get_steering_val(speed=ROBOT_SPEED-0.1)             
+            self.get_steering_val(speed=ROBOT_SPEED-0.1)
+            brightness = np.mean(cv_hsv[BOTTOM_ROW_OF_IMAGE-100:BOTTOM_ROW_OF_IMAGE,0:COLUMNS_IN_IMAGE])
+            cv2.imshow("mountain", mountain_mask)
+
 
 
         
