@@ -10,7 +10,8 @@ import random
 from std_msgs.msg import String
 
 VERBOSE = False
-IMG_AREA_THRESHOLD = 19000
+IMG_AREA_THRESHOLD1 = 19000
+IMG_AREA_THRESHOLD2 = 20000
 TIME_THRESHOLD = 3
 DATA_COLLECTION = False
 
@@ -83,7 +84,7 @@ class ImageDisplay:
             if max_non_blue_quad is not None:
                 area_non_blue_quad = cv2.contourArea(max_non_blue_quad)
                 current_time = rospy.Time.now()
-                if area_non_blue_quad > IMG_AREA_THRESHOLD and not self.image_captured and (current_time - self.last_image_time).to_sec() > TIME_THRESHOLD:
+                if area_non_blue_quad > IMG_AREA_THRESHOLD2 and not self.image_captured and (current_time - self.last_image_time).to_sec() > TIME_THRESHOLD:
                     max_non_blue_quad = self.order_points(max_non_blue_quad[:, 0, :])
                     pts1 = np.float32(max_non_blue_quad)
                     pts2 = np.float32([[0, 0], [600, 0], [600, 400], [0, 400]])
@@ -106,6 +107,8 @@ class ImageDisplay:
                             cv2.imwrite(self.img_filepath + filename, result)
                         cv2.imwrite(self.img_temp_path + filename, result)
                         print("Picture of {} taken.".format(filename))
+                        print(area_non_blue_quad)
+                        print("hq sign detected")
                     else:
                         print("No plate content found for plate number {}".format(self.plate_num))
 
@@ -113,7 +116,39 @@ class ImageDisplay:
                     self.image_captured = True
                     self.last_image_time = current_time
                     self.sign_pub.publish("Sign Detected")
-                elif area_non_blue_quad <= IMG_AREA_THRESHOLD:
+                if area_non_blue_quad > IMG_AREA_THRESHOLD1 and not self.image_captured and (current_time - self.last_image_time).to_sec() > TIME_THRESHOLD:
+                    max_non_blue_quad = self.order_points(max_non_blue_quad[:, 0, :])
+                    pts1 = np.float32(max_non_blue_quad)
+                    pts2 = np.float32([[0, 0], [600, 0], [600, 400], [0, 400]])
+                    matrix = cv2.getPerspectiveTransform(pts1, pts2)
+                    result = cv2.warpPerspective(cv_image, matrix, (600, 400))
+                    self.sign_pub.publish("Sign Detected")
+                    print("lq sign")
+
+                    # Take a picture of 'result' and save it
+
+                    self.plate_num+=1 # plate number
+
+                    # Plates Directory below:
+
+                    # '/home/fizzer/ros_ws/src/2023_competition/enph353/enph353_gazebo/scripts/plates.csv'
+
+                    plate_content = self.get_plate_content(self.plate_num, '/home/fizzer/ros_ws/src/2023_competition/enph353/enph353_gazebo/scripts/plates.csv')
+                    if plate_content:
+                        filename = "{}.jpg".format(plate_content)
+                        #save to competition_images filepath
+                        if DATA_COLLECTION:
+                            cv2.imwrite(self.img_filepath + filename, result)
+                        cv2.imwrite(self.img_temp_path + filename, result)
+                        print("Picture of {} taken.".format(filename))
+                        print(area_non_blue_quad)
+                    else:
+                        print("No plate content found for plate number {}".format(self.plate_num))
+
+                    cv2.imshow("Perspective Transformation", result)
+                    self.image_captured = True
+                    self.last_image_time = current_time
+                elif area_non_blue_quad <= IMG_AREA_THRESHOLD1:
                     self.image_captured = False
 
             # Draw the contour of the non-blue quadrilateral
