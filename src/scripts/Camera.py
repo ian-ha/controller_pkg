@@ -106,7 +106,7 @@ class ImageDisplay:
                         if DATA_COLLECTION:
                             cv2.imwrite(self.img_filepath + filename, result)
                         cv2.imwrite(self.img_temp_path + filename, result)
-                        print("Picture of {} taken.".format(filename))
+                        #print("Picture of {} taken.".format(filename))
                         print(area_non_blue_quad)
                         print("hq sign detected")
                     else:
@@ -140,7 +140,7 @@ class ImageDisplay:
                         if DATA_COLLECTION:
                             cv2.imwrite(self.img_filepath + filename, result)
                         cv2.imwrite(self.img_temp_path + filename, result)
-                        print("Picture of {} taken.".format(filename))
+                        #print("Picture of {} taken.".format(filename))
                         print(area_non_blue_quad)
                     else:
                         print("No plate content found for plate number {}".format(self.plate_num))

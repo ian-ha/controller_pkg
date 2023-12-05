@@ -62,6 +62,9 @@ MOUNTAIN2_UPPER_HSV = np.array([54, 100, 233])
 CROSSWALK_RED_LOWER_BGR = np.array([0, 0, 250])
 CROSSWALK_RED_UPPER_BGR = np.array([5, 5, 255])
 
+PED_PANTS_UPPER_HSV = np.array([160,180,93])
+PED_PANTS_LOWER_HSV = np.array([91,49,23])
+
 move = Twist()
 counter = 0
 state_machine = NORMAL_DRIVE
@@ -88,6 +91,9 @@ class robot_driving:
         self.tunnel_brightness = 0
         self.mountain2_brightness = 0
         self.signcount = 0
+        self.pedestrian_initial_position = np.zeros((300, 1279))
+        self.ped_seen = False
+        self.stopped_for_ped = False   
         rospy.sleep(10)
         # subscribed Topic
         self.publisher2 = rospy.Publisher("/score_tracker",String, queue_size=1)
@@ -105,7 +111,6 @@ class robot_driving:
 
         if VERBOSE :
             print ("/rrbot/camera/image_raw")
-
     
     def signcounter(self, data):
         self.signcount +=1
@@ -241,11 +246,22 @@ class robot_driving:
 
 
         if (state_machine == NORMAL_DRIVE):
+            if not self.ped_seen:
+                red_mask = cv2.inRange(blur_image2, CROSSWALK_RED_LOWER_BGR, CROSSWALK_RED_UPPER_BGR)
+                red_line = self.locate_road(SCAN_ROW, red_mask)
+                if red_line != -1:
+                    move.linear.x = 0
+                    move.angular.z = 0
+                    state_machine = PEDESTRIAN
+                    #the location of the pedestrian is the largest white area in the bottom 3/4 of the image
+                    print("entering pedestrian")
+                    return
             line_position = self.locate_road(SCAN_ROW,black_mask)
             #cv2.circle(cv_image, (line_position, SCAN_ROW), 5, (0,0,255), -1)
             self.steering_val = line_position
-            self.get_steering_val(speed=ROBOT_SPEED+.1, steering_sensitivity=60)
-
+            self.get_steering_val(speed=ROBOT_SPEED+.1, steering_sensitivity=90)
+            #if red line is detected, stop and wait for pedestrian to cross
+            
             if self.signcount == 3:
 
                 state_machine = TRUCK_LOOP
@@ -254,8 +270,35 @@ class robot_driving:
                 print("entering truck loop")
 
         elif state_machine == PEDESTRIAN:
+            hsv_blur = cv2.GaussianBlur(cv_hsv, (3,3), 0)
+            ped_mask = cv2.inRange(hsv_blur, PED_PANTS_LOWER_HSV, PED_PANTS_UPPER_HSV)
+            ped_mask = ped_mask[BOTTOM_ROW_OF_IMAGE-500:BOTTOM_ROW_OF_IMAGE-200,0:COLUMNS_IN_IMAGE]/255
+            move.linear.x = 0
+            move.angular.z = 0
+            self.publisher.publish(move)
+            if not self.stopped_for_ped:
+                self.publisher.publish(move)
+                rospy.sleep(0.8)
+                self.stopped_for_ped = True
+                return
+            if not self.ped_seen:
+                hsv_blur = cv2.GaussianBlur(cv_hsv, (3,3), 0) 
+                ped_mask = cv2.inRange(hsv_blur, PED_PANTS_LOWER_HSV, PED_PANTS_UPPER_HSV)
+                ped_mask = ped_mask[BOTTOM_ROW_OF_IMAGE-500:BOTTOM_ROW_OF_IMAGE-200,0:COLUMNS_IN_IMAGE]/255
+                self.pedestrian_initial_position = ped_mask
+                self.ped_seen = True
+                return
             line_position = self.locate_road(SCAN_ROW,black_mask)
-            state_machine = NORMAL_DRIVE
+                #wait for the pedestrian to move by checking if the white area has moved significantly
+            difference = cv2.absdiff(ped_mask, self.pedestrian_initial_position)
+            print(np.sum(abs(difference)))
+            cv2.imshow("ped", ped_mask)
+            cv2.waitKey(3)
+            if np.sum(abs(difference)) > 900:
+                state_machine = NORMAL_DRIVE
+                print("exiting pedestrian")
+            return 
+
         elif state_machine == TRUCK_LOOP:
             line_position = min([self.__scan_row_for_road(SCAN_ROW,black_mask,True) + 350,1279])
         
@@ -298,26 +341,14 @@ class robot_driving:
         elif state_machine == MOUNTAIN_BASE:
             if(counter - self.count_at_tunnel < 30):
                 frames_since_line += 1
-                move.linear.x = 0.12
+                move.linear.x = 0.14
                 move.angular.z = 0.35
                 line_position = -1
-                # if frames_since_line > 12:
-                    
-                #     state_machine = TUNNEL_MOUTH
-                #     frames_since_line = 0
-                #     print("entering tunnel")
-                #     self.count_at_tunnel = counter
             else:
                 line_position = -1
                 self.count_at_tunnel = counter
                 state_machine = TUNNEL_MOUTH
-                # frames_since_line = 0
-                # upper_line = np.array([180, 230, 230])
-                # lower_line = np.array([130, 170, 180])
-                # line_mask = cv2.inRange(blur_image2, lower_line, upper_line)
-                # line_position = self.locate_road(GRASS_ROW,line_mask)
-                # self.steering_val = line_position
-                # self.get_steering_val(speed=ROBOT_SPEED-0.25, steering_sensitivity=110)
+                print("entering tunnel")
         elif state_machine == TUNNEL_MOUTH:
             hsv_blur = cv2.GaussianBlur(cv_hsv, (3,3), 0)
             tunnel_mask = cv2.inRange(hsv_blur, TUNNEL_LOWER_HSV, TUNNEL_UPPER_HSV)
@@ -399,7 +430,10 @@ class robot_driving:
                 self.prev_steering_val = -1
                 print("entering mountain")
 
-        try:          
+        try: 
+            if(state_machine == PEDESTRIAN):
+                move.linear.x = 0
+                move.angular.z = 0         
             self.publisher.publish(move)
         except:
             print("failed to publish")
