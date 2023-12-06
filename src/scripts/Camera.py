@@ -10,7 +10,7 @@ import random
 from std_msgs.msg import String
 
 VERBOSE = False
-IMG_AREA_THRESHOLD1 = 19000
+IMG_AREA_THRESHOLD1 = 17500
 IMG_AREA_THRESHOLD2 = 20000
 TIME_THRESHOLD = 3
 DATA_COLLECTION = False
@@ -20,6 +20,7 @@ class ImageDisplay:
         self.bridge = CvBridge()
         self.subscriber = rospy.Subscriber("/R1/pi_camera/image_raw", Image, self.callback, queue_size=1)
         self.sign_pub = rospy.Publisher('sign_detected', String, queue_size=2)
+        self.sign_ready = rospy.Publisher('sign_ready', String, queue_size=2)
         self.last_image_time = rospy.Time()
         self.plate_num = 0
         self.image_captured = False
@@ -106,6 +107,7 @@ class ImageDisplay:
                         if DATA_COLLECTION:
                             cv2.imwrite(self.img_filepath + filename, result)
                         cv2.imwrite(self.img_temp_path + filename, result)
+                        self.sign_ready.publish("Sign Ready")
                         #print("Picture of {} taken.".format(filename))
                         #print(area_non_blue_quad)
                         print("hq sign detected")
@@ -123,6 +125,7 @@ class ImageDisplay:
                     matrix = cv2.getPerspectiveTransform(pts1, pts2)
                     result = cv2.warpPerspective(cv_image, matrix, (600, 400))
                     self.sign_pub.publish("Sign Detected")
+                    print(area_non_blue_quad)
                     print("lq sign")
 
                     # Take a picture of 'result' and save it
@@ -140,6 +143,7 @@ class ImageDisplay:
                         if DATA_COLLECTION:
                             cv2.imwrite(self.img_filepath + filename, result)
                         cv2.imwrite(self.img_temp_path + filename, result)
+                        self.sign_ready.publish("Sign Ready")
                         #print("Picture of {} taken.".format(filename))
                         #print(area_non_blue_quad)
                     else:
