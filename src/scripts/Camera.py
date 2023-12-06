@@ -100,19 +100,16 @@ class ImageDisplay:
 
                     # '/home/fizzer/ros_ws/src/2023_competition/enph353/enph353_gazebo/scripts/plates.csv'
 
-                    plate_content = self.get_plate_content(self.plate_num, '/home/fizzer/ros_ws/src/2023_competition/enph353/enph353_gazebo/scripts/plates.csv')
-                    if plate_content:
-                        filename = "{}.jpg".format(plate_content)
-                        #save to competition_images filepath
-                        if DATA_COLLECTION:
-                            cv2.imwrite(self.img_filepath + filename, result)
-                        cv2.imwrite(self.img_temp_path + filename, result)
-                        self.sign_ready.publish("Sign Ready")
-                        #print("Picture of {} taken.".format(filename))
-                        #print(area_non_blue_quad)
-                        print("hq sign detected")
-                    else:
-                        print("No plate content found for plate number {}".format(self.plate_num))
+                    
+                    filename = "{}.jpg".format(self.plate_num)
+                    #save to competition_images filepath
+                    if DATA_COLLECTION:
+                        cv2.imwrite(self.img_filepath + filename, result)
+                    cv2.imwrite(self.img_temp_path + filename, result)
+                    self.sign_ready.publish("Sign Ready")
+                    #print("Picture of {} taken.".format(filename))
+                    print(area_non_blue_quad)
+                    print("hq sign detected")
 
                     cv2.imshow("Perspective Transformation", result)
                     self.image_captured = True
@@ -136,18 +133,15 @@ class ImageDisplay:
 
                     # '/home/fizzer/ros_ws/src/2023_competition/enph353/enph353_gazebo/scripts/plates.csv'
 
-                    plate_content = self.get_plate_content(self.plate_num, '/home/fizzer/ros_ws/src/2023_competition/enph353/enph353_gazebo/scripts/plates.csv')
-                    if plate_content:
-                        filename = "{}.jpg".format(plate_content)
-                        #save to competition_images filepath
-                        if DATA_COLLECTION:
-                            cv2.imwrite(self.img_filepath + filename, result)
-                        cv2.imwrite(self.img_temp_path + filename, result)
-                        self.sign_ready.publish("Sign Ready")
-                        #print("Picture of {} taken.".format(filename))
-                        #print(area_non_blue_quad)
-                    else:
-                        print("No plate content found for plate number {}".format(self.plate_num))
+                    filename = "{}.jpg".format(self.plate_num)
+                    #save to competition_images filepath
+                    if DATA_COLLECTION:
+                        cv2.imwrite(self.img_filepath + filename, result)
+                    cv2.imwrite(self.img_temp_path + filename, result)
+                    self.sign_ready.publish("Sign Ready")
+                    #print("Picture of {} taken.".format(filename))
+                    print(area_non_blue_quad)
+                    
 
                     cv2.imshow("Perspective Transformation", result)
                     self.image_captured = True
