@@ -304,10 +304,12 @@ class robot_driving:
             move.linear.x = 0
             move.angular.z = 0
             self.publisher.publish(move)
-            if not self.stopped_for_truck:
+            if not self.stopped_for_ped:
+                move.linear.x = 0
+                move.angular.z = 0
                 self.publisher.publish(move)
-                rospy.sleep(0.9)
-                self.stopped_for_truck = True
+                rospy.sleep(1)
+                self.stopped_for_ped = True
                 return
             if not self.ped_seen:
                 hsv_blur = cv2.GaussianBlur(cv_hsv, (3,3), 0) 
@@ -322,17 +324,12 @@ class robot_driving:
             print(np.sum(abs(difference)))
             cv2.imshow("ped", ped_mask)
             cv2.waitKey(3)
-            if np.sum(abs(difference)) > 725:
+            if np.sum(abs(difference)) > 735:
                 state_machine = NORMAL_DRIVE
                 print("exiting pedestrian")
             return
         
         elif state_machine == INTERSECTION:
-            if not self.stopped_for_truck:
-                self.publisher.publish(move)
-                rospy.sleep(0.8)
-                self.stopped_for_truck = True
-                return
             hsv_blur = cv2.GaussianBlur(cv_hsv, (3,3), 0)
             truck_mask = cv2.inRange(hsv_blur, TRUCK_MASK_LOWER_HSV, TRUCK_MASK_UPPER_HSV)
             truck_mask = truck_mask[TRUCK_MASK_TOP:BOTTOM_ROW_OF_IMAGE-200,TRUCK_MASK_LEFT:TRUCK_MASK_RIGHT]/255
@@ -354,7 +351,7 @@ class robot_driving:
                 state_machine = TRUCK_LOOP
                 print("exiting intersection")
                 return
-            rospy.sleep(0.3)
+            rospy.sleep(0.4)
             self.last_truck_position = truck_mask
             return
 
@@ -435,7 +432,7 @@ class robot_driving:
                 state_machine = CLIMBING_MOUNTAIN
                 self.tunnel_brightness = np.mean(hsv_blur[BOTTOM_ROW_OF_IMAGE-100:BOTTOM_ROW_OF_IMAGE,0:COLUMNS_IN_IMAGE])
                 print("climing the mountain")
-            self.get_steering_val(speed=ROBOT_SPEED-0.25, steering_sensitivity=125)
+            self.get_steering_val(speed=ROBOT_SPEED-0.2, steering_sensitivity=125)
             cv2.imshow("tunnel", tunnel_mask)
         elif state_machine == CLIMBING_MOUNTAIN:
             hsv_blur = cv2.GaussianBlur(cv_hsv, (3,3), 0)

@@ -25,7 +25,7 @@ ONEHOT_INDEX = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 image_path = '/home/fizzer/ros_ws/src/controller_pkg/src/plateImages/'
 
 
-MODEL_PATH = r'/home/fizzer/ros_ws/src/controller_pkg/src/models/blurred5x5.keras'
+MODEL_PATH = r'/home/fizzer/ros_ws/src/controller_pkg/src/models/big_data.keras'
 PARTITIONED_IMG_PATH = r'/home/fizzer/ros_ws/src/controller_pkg/src/IndividualCharacters/'
 
 class clueGuesser:
@@ -35,7 +35,7 @@ class clueGuesser:
         self.model = keras.models.load_model(MODEL_PATH, compile=False)
         self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
         self.publisher = rospy.Publisher("/score_tracker",String, queue_size=2)
-        self.clue_subscriber = rospy.Subscriber("sign_detected", String, self.callback, queue_size=1)
+        self.clue_subscriber = rospy.Subscriber("sign_ready", String, self.callback, queue_size=1)
         self.clue_count = 0
         self.entries = {'SIZE': ["TWO", "314", "DOZEN", "RAYO10", "COUNTLESS", "LEGIONS",
                     "TRIPLETS"],
