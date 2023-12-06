@@ -35,7 +35,7 @@ STEERING_CENTER = 640
 COLUMNS_IN_IMAGE = 1279
 GRASS_ROW = BOTTOM_ROW_OF_IMAGE - 275
 GRASS_2 = BOTTOM_ROW_OF_IMAGE - 200
-TRUCK_MASK_TOP = 320
+TRUCK_MASK_TOP = 360
 TRUCK_MASK_LEFT = 300
 TRUCK_MASK_RIGHT = 600
 VERBOSE=False
@@ -104,7 +104,7 @@ class robot_driving:
         self.stopped_for_ped = False
         self.stopped_for_truck = False
         self.truck_seen = False   
-        rospy.sleep(10)
+        rospy.sleep(20)
         # subscribed Topic
         self.publisher2 = rospy.Publisher("/score_tracker",String, queue_size=1)
         self.signsub = rospy.Subscriber("sign_detected", String, self.signcounter, queue_size=1)
@@ -347,7 +347,7 @@ class robot_driving:
             print(np.sum(abs(difference)))
             cv2.imshow("truck", truck_mask)
             cv2.waitKey(3)
-            if np.sum(abs(difference)) < 125:
+            if np.sum(abs(difference)) < 100:
                 state_machine = TRUCK_LOOP
                 print("exiting intersection")
                 return
@@ -396,7 +396,7 @@ class robot_driving:
                 #cv2.circle(cv_image, (line_position, WALL_ROW), 5, (0,0,255), -1)
             else:
                 move.linear.x = 1.05
-                move.angular.z = 0.4
+                move.angular.z = 0.42
                 line_position = 0
         elif state_machine == MOUNTAIN_BASE:
             if(counter - self.count_at_tunnel < 30):
