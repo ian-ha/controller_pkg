@@ -107,7 +107,7 @@ class ImageDisplay:
                             cv2.imwrite(self.img_filepath + filename, result)
                         cv2.imwrite(self.img_temp_path + filename, result)
                         #print("Picture of {} taken.".format(filename))
-                        print(area_non_blue_quad)
+                        #print(area_non_blue_quad)
                         print("hq sign detected")
                     else:
                         print("No plate content found for plate number {}".format(self.plate_num))
@@ -141,7 +141,7 @@ class ImageDisplay:
                             cv2.imwrite(self.img_filepath + filename, result)
                         cv2.imwrite(self.img_temp_path + filename, result)
                         #print("Picture of {} taken.".format(filename))
-                        print(area_non_blue_quad)
+                        #print(area_non_blue_quad)
                     else:
                         print("No plate content found for plate number {}".format(self.plate_num))
 
@@ -156,7 +156,7 @@ class ImageDisplay:
                 cv2.drawContours(cv_image, [max_non_blue_quad.astype(int)], 0, (0, 0, 255), 3)
 
         # Display the edge-detected image
-        cv2.imshow("Masked Image", filtered_image)
+        #cv2.imshow("Masked Image", filtered_image)
         
         cv2.waitKey(3)
 

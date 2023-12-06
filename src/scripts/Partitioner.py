@@ -127,7 +127,7 @@ class clueGuesser:
                     for i, cnt in enumerate(sorted_contours):
                         x, y, w, h = cv2.boundingRect(cnt)
 
-                        if x < boundary_x and y < height // 2:
+                        if y < height // 2:
                             continue
 
                         # Too get rid of extraneous images
@@ -155,9 +155,11 @@ class clueGuesser:
                     print("Clue {}: {}".format(self.clue_count, sign_prediction))
                     #check if the beginning of the sign prediction is a key in entries
                     self.clue_count += 1
-                    guess = ""
+                    guess = sign_prediction
+                    self.publisher.publish('TeamName,password,'+str(self.clue_count)+','+guess)
+
                     for key in self.entries:
-                        if key in sign_prediction:
+                        if sign_prediction in key:
                             to_remove = len(key)
                             sign_prediction = sign_prediction[to_remove:]
                             guess = sign_prediction[:1] + ' ' + sign_prediction[1:]
