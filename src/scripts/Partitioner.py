@@ -11,7 +11,6 @@ import rospy
 from std_msgs.msg import String
 import sys
 import time
-from Levenshtein import distance as levenshtein_distance
 
 # Scale images
 target_width = 42
@@ -170,6 +169,11 @@ class clueGuesser:
                     print("Clue {}: {}".format(self.clue_count, sign_prediction))
                     #check if the beginning of the sign prediction is a key in entries
                     self.clue_count += 1
+
+                    if self.clue_count != 5:
+                        modified_sign_prediction = sign_prediction.replace("8", "B")
+                        guess = modified_sign_prediction
+                        
                     guess = sign_prediction
                     #self.publisher.publish('TeamName,password,' + str(self.clue_count) + ',' + guess)
 

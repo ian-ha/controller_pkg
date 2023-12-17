@@ -289,6 +289,15 @@ class robot_driving:
             self.steering_val = line_position
             self.get_steering_val(speed=ROBOT_SPEED+.12, steering_sensitivity=70)
             #if red line is detected, stop and wait for pedestrian to cross
+
+            if self.signcount == 2 and counter > 350:
+               move.linear.x = 0
+               move.angular.z = 0.3
+               self.publisher.publish(move)
+               rospy.sleep(1)
+               state_machine = INTERSECTION
+               return
+
             
             if self.signcount == 3:
 
@@ -317,6 +326,7 @@ class robot_driving:
                 ped_mask = ped_mask[BOTTOM_ROW_OF_IMAGE-500:BOTTOM_ROW_OF_IMAGE-200,0:COLUMNS_IN_IMAGE]/255
                 self.pedestrian_initial_position = ped_mask
                 self.ped_seen = True
+                
                 return
             line_position = self.locate_road(SCAN_ROW,black_mask)
                 #wait for the pedestrian to move by checking if the white area has moved significantly
@@ -324,7 +334,7 @@ class robot_driving:
             print(np.sum(abs(difference)))
             cv2.imshow("ped", ped_mask)
             cv2.waitKey(3)
-            if np.sum(abs(difference)) > 735:
+            if np.sum(abs(difference)) > 645:
                 state_machine = NORMAL_DRIVE
                 print("exiting pedestrian")
             return
